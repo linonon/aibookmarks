@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import { BookmarkStoreManager } from '../store/bookmarkStore';
-import { Bookmark, BookmarkCategory } from '../store/types';
 import { parseLocation, normalizePath } from '../utils';
 
 // Category colors
@@ -56,16 +55,11 @@ export class DecorationProvider implements vscode.Disposable {
   }
 
   private createDecorationTypes(): void {
-    // Create decoration type for each category
+    // Create decoration type for each category (gutter icon on first line only)
     for (const [category, color] of Object.entries(CATEGORY_COLORS)) {
       const decorationType = vscode.window.createTextEditorDecorationType({
         gutterIconPath: this.createGutterIcon(color),
-        gutterIconSize: 'contain',
-        overviewRulerColor: color,
-        overviewRulerLane: vscode.OverviewRulerLane.Right,
-        isWholeLine: false,
-        backgroundColor: `${color}15`, // 15% opacity
-        borderRadius: '3px'
+        gutterIconSize: 'contain'
       });
       this.decorationTypes.set(category, decorationType);
     }
@@ -73,24 +67,17 @@ export class DecorationProvider implements vscode.Disposable {
     // Default decoration type
     const defaultDecorationType = vscode.window.createTextEditorDecorationType({
       gutterIconPath: this.createGutterIcon(DEFAULT_COLOR),
-      gutterIconSize: 'contain',
-      overviewRulerColor: DEFAULT_COLOR,
-      overviewRulerLane: vscode.OverviewRulerLane.Right,
-      isWholeLine: false,
-      backgroundColor: `${DEFAULT_COLOR}15`,
-      borderRadius: '3px'
+      gutterIconSize: 'contain'
     });
     this.decorationTypes.set('default', defaultDecorationType);
   }
 
   private createGutterIcon(color: string): vscode.Uri {
-    // Create a simple SVG icon for the gutter
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="${color}">
-      <path d="M3 2v12l5-4 5 4V2z"/>
+    // Small dot icon for gutter
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+      <circle cx="8" cy="8" r="4" fill="${color}"/>
     </svg>`;
-
-    const encodedSvg = encodeURIComponent(svg);
-    return vscode.Uri.parse(`data:image/svg+xml,${encodedSvg}`);
+    return vscode.Uri.parse(`data:image/svg+xml,${encodeURIComponent(svg)}`);
   }
 
   private updateAllEditors(): void {
@@ -144,12 +131,13 @@ export class DecorationProvider implements vscode.Disposable {
     this.clearDecorations(editor);
 
     // Apply decorations by category
+    // Note: hover content is provided by hoverProvider.ts, not here
     for (const [category, items] of bookmarksByCategory) {
       const decorationType = this.decorationTypes.get(category) || this.decorationTypes.get('default')!;
 
-      const decorations: vscode.DecorationOptions[] = items.map(({ bookmark, range }) => ({
-        range,
-        hoverMessage: this.createHoverMessage(bookmark)
+      // Only show gutter icon on the first line of each bookmark
+      const decorations: vscode.DecorationOptions[] = items.map(({ range }) => ({
+        range: new vscode.Range(range.start, range.start)
       }));
 
       editor.setDecorations(decorationType, decorations);
@@ -160,24 +148,6 @@ export class DecorationProvider implements vscode.Disposable {
     for (const decorationType of this.decorationTypes.values()) {
       editor.setDecorations(decorationType, []);
     }
-  }
-
-  private createHoverMessage(bookmark: Bookmark): vscode.MarkdownString {
-    const md = new vscode.MarkdownString();
-    md.isTrusted = true;
-
-    md.appendMarkdown(`### ${bookmark.title}\n\n`);
-    md.appendMarkdown(bookmark.description);
-
-    if (bookmark.category) {
-      md.appendMarkdown(`\n\n**Category:** ${bookmark.category}`);
-    }
-
-    if (bookmark.tags && bookmark.tags.length > 0) {
-      md.appendMarkdown(`\n\n**Tags:** ${bookmark.tags.join(', ')}`);
-    }
-
-    return md;
   }
 
   dispose(): void {

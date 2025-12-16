@@ -2,6 +2,7 @@ import { BookmarkStoreManager } from '../store/bookmarkStore';
 import {
   CreateGroupArgs,
   AddBookmarkArgs,
+  AddChildBookmarkArgs,
   ListGroupsArgs,
   ListBookmarksArgs,
   UpdateGroupArgs,
@@ -10,9 +11,11 @@ import {
   RemoveGroupArgs,
   GetGroupArgs,
   GetBookmarkArgs,
+  GetBookmarkTreeArgs,
   BatchAddBookmarksArgs,
   ClearAllBookmarksArgs,
-  BookmarkCategory
+  BookmarkCategory,
+  BookmarkWithChildren
 } from '../store/types';
 
 export interface ToolResult {
@@ -50,10 +53,10 @@ export class MCPHandlers {
     }
   }
 
-  // add_bookmark - 在指定分组中添加书签
+  // add_bookmark - 在指定分组中添加书签(支持parentId指定父书签)
   addBookmark(args: AddBookmarkArgs): ToolResult {
     try {
-      const { groupId, location, title, description, order, category, tags } = args;
+      const { groupId, parentId, location, title, description, order, category, tags } = args;
 
       if (!groupId || typeof groupId !== 'string') {
         return { success: false, error: 'groupId is required and must be a string' };
@@ -81,26 +84,96 @@ export class MCPHandlers {
       }
 
       const bookmarkId = this.store.addBookmark(groupId, location, title, description, {
+        parentId,
         order,
         category,
         tags
       });
 
       if (!bookmarkId) {
-        return { success: false, error: `Group with id "${groupId}" not found` };
+        // Could be group not found or parent not found
+        const group = this.store.getGroup(groupId);
+        if (!group) {
+          return { success: false, error: `Group with id "${groupId}" not found` };
+        }
+        if (parentId) {
+          return { success: false, error: `Parent bookmark with id "${parentId}" not found in group` };
+        }
+        return { success: false, error: 'Failed to add bookmark' };
       }
+
+      const message = parentId
+        ? `Successfully added child bookmark "${title}" under parent "${parentId}"`
+        : `Successfully added bookmark "${title}" to group`;
 
       return {
         success: true,
         data: {
           bookmarkId,
-          message: `Successfully added bookmark "${title}" to group`
+          parentId: parentId || null,
+          message
         }
       };
     } catch (error) {
       return {
         success: false,
         error: `Failed to add bookmark: ${error}`
+      };
+    }
+  }
+
+  // add_child_bookmark - 给现有书签添加子书签(语义化接口)
+  addChildBookmark(args: AddChildBookmarkArgs): ToolResult {
+    try {
+      const { parentBookmarkId, location, title, description, order, category, tags } = args;
+
+      if (!parentBookmarkId || typeof parentBookmarkId !== 'string') {
+        return { success: false, error: 'parentBookmarkId is required and must be a string' };
+      }
+      if (!location || typeof location !== 'string') {
+        return { success: false, error: 'location is required and must be a string' };
+      }
+      if (!title || typeof title !== 'string') {
+        return { success: false, error: 'title is required and must be a string' };
+      }
+      if (!description || typeof description !== 'string') {
+        return { success: false, error: 'description is required and must be a string' };
+      }
+
+      // Validate category if provided
+      const validCategories: BookmarkCategory[] = [
+        'entry-point', 'core-logic', 'todo', 'bug',
+        'optimization', 'explanation', 'warning', 'reference'
+      ];
+      if (category && !validCategories.includes(category)) {
+        return {
+          success: false,
+          error: `Invalid category. Must be one of: ${validCategories.join(', ')}`
+        };
+      }
+
+      const bookmarkId = this.store.addChildBookmark(parentBookmarkId, location, title, description, {
+        order,
+        category,
+        tags
+      });
+
+      if (!bookmarkId) {
+        return { success: false, error: `Parent bookmark with id "${parentBookmarkId}" not found` };
+      }
+
+      return {
+        success: true,
+        data: {
+          bookmarkId,
+          parentBookmarkId,
+          message: `Successfully added child bookmark "${title}" under parent`
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to add child bookmark: ${error}`
       };
     }
   }
@@ -144,10 +217,10 @@ export class MCPHandlers {
     }
   }
 
-  // list_bookmarks - 列出书签, 支持筛选
+  // list_bookmarks - 列出书签, 支持筛选(支持parentId过滤和includeDescendants)
   listBookmarks(args: ListBookmarksArgs): ToolResult {
     try {
-      const { groupId, filePath, category, tags } = args;
+      const { groupId, parentId, includeDescendants, filePath, category, tags } = args;
 
       // Validate category if provided
       const validCategories: BookmarkCategory[] = [
@@ -163,6 +236,8 @@ export class MCPHandlers {
 
       const results = this.store.listBookmarks({
         groupId,
+        parentId,
+        includeDescendants,
         filePath,
         category,
         tags
@@ -173,12 +248,15 @@ export class MCPHandlers {
         data: {
           bookmarks: results.map(r => ({
             id: r.bookmark.id,
+            parentId: r.bookmark.parentId || null,
             order: r.bookmark.order,
             location: r.bookmark.location,
             title: r.bookmark.title,
             description: r.bookmark.description,
             category: r.bookmark.category,
             tags: r.bookmark.tags,
+            collapsed: r.bookmark.collapsed,
+            hasChildren: this.store.hasChildren(r.bookmark.id),
             groupId: r.group.id,
             groupName: r.group.name
           })),
@@ -226,18 +304,20 @@ export class MCPHandlers {
     }
   }
 
-  // update_bookmark - 更新书签内容
+  // update_bookmark - 更新书签内容(支持parentId移动层级)
   updateBookmark(args: UpdateBookmarkArgs): ToolResult {
     try {
-      const { bookmarkId, location, title, description, order, category, tags } = args;
+      const { bookmarkId, parentId, location, title, description, order, category, tags } = args;
 
       if (!bookmarkId || typeof bookmarkId !== 'string') {
         return { success: false, error: 'bookmarkId is required and must be a string' };
       }
 
       // Check if at least one update field is provided
+      // parentId can be null (move to top level) or string (move under parent)
       if (location === undefined && title === undefined && description === undefined &&
-          order === undefined && category === undefined && tags === undefined) {
+          order === undefined && category === undefined && tags === undefined &&
+          parentId === undefined) {
         return { success: false, error: 'At least one update field must be provided' };
       }
 
@@ -253,7 +333,8 @@ export class MCPHandlers {
         };
       }
 
-      const success = this.store.updateBookmark(bookmarkId, {
+      const result = this.store.updateBookmark(bookmarkId, {
+        parentId,
         location,
         title,
         description,
@@ -262,8 +343,16 @@ export class MCPHandlers {
         tags
       });
 
-      if (!success) {
+      if (result === false) {
         return { success: false, error: `Bookmark with id "${bookmarkId}" not found` };
+      }
+
+      if (result === 'circular_reference') {
+        return { success: false, error: 'Cannot move bookmark: would create circular reference' };
+      }
+
+      if (result === 'parent_not_found') {
+        return { success: false, error: `Parent bookmark with id "${parentId}" not found in the same group` };
       }
 
       return {
@@ -280,7 +369,7 @@ export class MCPHandlers {
     }
   }
 
-  // remove_bookmark - 删除书签
+  // remove_bookmark - 删除书签(级联删除所有子书签)
   removeBookmark(args: RemoveBookmarkArgs): ToolResult {
     try {
       const { bookmarkId } = args;
@@ -289,16 +378,21 @@ export class MCPHandlers {
         return { success: false, error: 'bookmarkId is required and must be a string' };
       }
 
-      const success = this.store.removeBookmark(bookmarkId);
+      const result = this.store.removeBookmark(bookmarkId);
 
-      if (!success) {
+      if (!result.success) {
         return { success: false, error: `Bookmark with id "${bookmarkId}" not found` };
       }
+
+      const message = result.removedCount > 1
+        ? `Successfully removed bookmark "${bookmarkId}" and ${result.removedCount - 1} child bookmark(s)`
+        : `Successfully removed bookmark "${bookmarkId}"`;
 
       return {
         success: true,
         data: {
-          message: `Successfully removed bookmark "${bookmarkId}"`
+          message,
+          removedCount: result.removedCount
         }
       };
     } catch (error) {
@@ -344,7 +438,7 @@ export class MCPHandlers {
     }
   }
 
-  // get_group - 获取单个分组的详细信息(包含所有书签)
+  // get_group - 获取单个分组的详细信息(包含所有书签,支持树形结构)
   getGroup(args: GetGroupArgs): ToolResult {
     try {
       const { groupId } = args;
@@ -358,6 +452,23 @@ export class MCPHandlers {
         return { success: false, error: `Group with id "${groupId}" not found` };
       }
 
+      // Get tree structure for the group
+      const bookmarkTrees = this.store.getGroupBookmarkTrees(groupId);
+
+      // Helper to convert tree to response format
+      const formatTree = (node: BookmarkWithChildren): object => ({
+        id: node.id,
+        parentId: node.parentId || null,
+        order: node.order,
+        location: node.location,
+        title: node.title,
+        description: node.description,
+        category: node.category,
+        tags: node.tags,
+        collapsed: node.collapsed,
+        children: node.children.map(formatTree)
+      });
+
       return {
         success: true,
         data: {
@@ -369,15 +480,21 @@ export class MCPHandlers {
             createdAt: group.createdAt,
             updatedAt: group.updatedAt,
             createdBy: group.createdBy,
+            // Flat list for backward compatibility
             bookmarks: group.bookmarks.map(b => ({
               id: b.id,
+              parentId: b.parentId || null,
               order: b.order,
               location: b.location,
               title: b.title,
               description: b.description,
               category: b.category,
-              tags: b.tags
-            }))
+              tags: b.tags,
+              collapsed: b.collapsed,
+              hasChildren: this.store.hasChildren(b.id)
+            })),
+            // Tree structure
+            bookmarkTrees: bookmarkTrees.map(formatTree)
           }
         }
       };
@@ -405,18 +522,25 @@ export class MCPHandlers {
 
       const { bookmark, group } = result;
 
+      // Get children info
+      const children = this.store.getChildBookmarks(bookmarkId);
+
       return {
         success: true,
         data: {
           bookmark: {
             id: bookmark.id,
+            parentId: bookmark.parentId || null,
             order: bookmark.order,
             location: bookmark.location,
             title: bookmark.title,
             description: bookmark.description,
             category: bookmark.category,
             tags: bookmark.tags,
-            codeSnapshot: bookmark.codeSnapshot
+            collapsed: bookmark.collapsed,
+            codeSnapshot: bookmark.codeSnapshot,
+            hasChildren: children.length > 0,
+            childCount: children.length
           },
           group: {
             id: group.id,
@@ -432,10 +556,69 @@ export class MCPHandlers {
     }
   }
 
-  // batch_add_bookmarks - 批量添加书签到分组
+  // get_bookmark_tree - 获取书签及其所有子书签的树形结构
+  getBookmarkTree(args: GetBookmarkTreeArgs): ToolResult {
+    try {
+      const { bookmarkId, maxDepth } = args;
+
+      if (!bookmarkId || typeof bookmarkId !== 'string') {
+        return { success: false, error: 'bookmarkId is required and must be a string' };
+      }
+
+      const tree = this.store.getBookmarkTree(bookmarkId, maxDepth);
+      if (!tree) {
+        return { success: false, error: `Bookmark with id "${bookmarkId}" not found` };
+      }
+
+      // Get the group for this bookmark
+      const bookmarkResult = this.store.getBookmark(bookmarkId);
+      if (!bookmarkResult) {
+        return { success: false, error: `Bookmark with id "${bookmarkId}" not found` };
+      }
+
+      // Helper to convert tree to response format with depth info
+      const formatTree = (node: BookmarkWithChildren, depth: number = 0): object => ({
+        id: node.id,
+        parentId: node.parentId || null,
+        order: node.order,
+        location: node.location,
+        title: node.title,
+        description: node.description,
+        category: node.category,
+        tags: node.tags,
+        collapsed: node.collapsed,
+        depth,
+        children: node.children.map(child => formatTree(child, depth + 1))
+      });
+
+      // Count total nodes in tree
+      const countNodes = (node: BookmarkWithChildren): number => {
+        return 1 + node.children.reduce((sum, child) => sum + countNodes(child), 0);
+      };
+
+      return {
+        success: true,
+        data: {
+          tree: formatTree(tree),
+          group: {
+            id: bookmarkResult.group.id,
+            name: bookmarkResult.group.name
+          },
+          totalNodes: countNodes(tree)
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to get bookmark tree: ${error}`
+      };
+    }
+  }
+
+  // batch_add_bookmarks - 批量添加书签到分组(支持parentId指定父书签)
   batchAddBookmarks(args: BatchAddBookmarksArgs): ToolResult {
     try {
-      const { groupId, bookmarks } = args;
+      const { groupId, parentId, bookmarks } = args;
 
       if (!groupId || typeof groupId !== 'string') {
         return { success: false, error: 'groupId is required and must be a string' };
@@ -448,6 +631,14 @@ export class MCPHandlers {
       const group = this.store.getGroup(groupId);
       if (!group) {
         return { success: false, error: `Group with id "${groupId}" not found` };
+      }
+
+      // Validate parent exists if specified
+      if (parentId) {
+        const parent = group.bookmarks.find(b => b.id === parentId);
+        if (!parent) {
+          return { success: false, error: `Parent bookmark with id "${parentId}" not found in group` };
+        }
       }
 
       const validCategories: BookmarkCategory[] = [
@@ -480,6 +671,7 @@ export class MCPHandlers {
         }
 
         const bookmarkId = this.store.addBookmark(groupId, b.location, b.title, b.description, {
+          parentId,  // Use the batch-level parentId
           order: b.order,
           category: b.category,
           tags: b.tags
@@ -493,10 +685,15 @@ export class MCPHandlers {
         }
       }
 
+      const message = parentId
+        ? `Added ${successCount}/${bookmarks.length} child bookmarks under parent "${parentId}"`
+        : `Added ${successCount}/${bookmarks.length} bookmarks to group "${group.name}"`;
+
       return {
         success: successCount > 0,
         data: {
-          message: `Added ${successCount}/${bookmarks.length} bookmarks to group "${group.name}"`,
+          message,
+          parentId: parentId || null,
           results
         }
       };

@@ -31,6 +31,43 @@
                               └───────────────┘
 ```
 
+## 雙版本 MCP Server 架構 (重要!)
+
+本項目有**兩套獨立的 MCP Server 實現**, 修改功能時必須同時修改兩邊:
+
+| 版本 | 用途 | 文件 |
+|------|------|------|
+| **Embedded** | VSCode 擴展內嵌運行 | `server.ts`, `handlers.ts`, `bookmarkStore.ts` |
+| **Standalone** | Claude Code 獨立運行 | `serverStandalone.ts`, `handlersStandalone.ts`, `bookmarkStoreStandalone.ts` |
+
+### 為什麼有兩個版本?
+
+- **Embedded**: 在 VSCode 進程內運行, 可以直接訪問 VSCode API (如 `vscode.workspace`)
+- **Standalone**: 通過 `npx` 獨立運行, 不依賴 VSCode, Claude Code 使用這個版本
+
+### 修改功能時的注意事項
+
+**任何 MCP 工具的修改都需要同時修改兩套文件!**
+
+例如添加新工具:
+1. `src/store/types.ts` - 添加類型定義 (共用)
+2. `src/store/bookmarkStore.ts` + `bookmarkStoreStandalone.ts` - 添加存儲邏輯
+3. `src/mcp/handlers.ts` + `handlersStandalone.ts` - 添加處理函數
+4. `src/mcp/server.ts` + `serverStandalone.ts` - 添加工具定義和 switch case
+
+### 層級書籤 (Hierarchical Bookmarks)
+
+書籤支持父子層級關係, 通過 `parentId` 字段實現:
+
+- `add_bookmark` - 可指定 `parentId` 創建子書籤
+- `add_child_bookmark` - 語義化接口, 直接在父書籤下創建子書籤
+- `get_bookmark_tree` - 獲取書籤及其所有子書籤的樹狀結構
+
+**AI 使用指南** (已寫入工具描述):
+- 函數 A 調用函數 B → B 應該是 A 的**子書籤** (使用 parentId)
+- 入口點有多個步驟 → 步驟是入口點的**子書籤**
+- 調用者 → 被調用者 = 父書籤 → 子書籤
+
 ## 項目結構
 
 ```
@@ -40,15 +77,18 @@ ai-bookmarks/
 ├── src/
 │   ├── extension.ts          # 擴展入口
 │   ├── mcp/
-│   │   ├── server.ts         # MCP Server 實現
-│   │   └── handlers.ts       # 工具處理函數
+│   │   ├── server.ts         # MCP Server (VSCode 內嵌版)
+│   │   ├── serverStandalone.ts    # MCP Server (獨立運行版)
+│   │   ├── handlers.ts       # 工具處理函數 (VSCode 版)
+│   │   └── handlersStandalone.ts  # 工具處理函數 (獨立版)
 │   ├── providers/
 │   │   ├── treeProvider.ts   # 書籤樹視圖
 │   │   ├── decorationProvider.ts  # 行內裝飾
 │   │   └── hoverProvider.ts  # 懸浮提示
 │   ├── store/
-│   │   ├── bookmarkStore.ts  # 書籤存儲管理
-│   │   └── types.ts          # 類型定義
+│   │   ├── bookmarkStore.ts  # 書籤存儲管理 (VSCode 版)
+│   │   ├── bookmarkStoreStandalone.ts  # 書籤存儲管理 (獨立版)
+│   │   └── types.ts          # 類型定義 (共用)
 │   └── utils/
 │       └── index.ts
 ├── icons/                    # 書籤圖標
@@ -96,15 +136,16 @@ interface BookmarkGroup {
 ```typescript
 interface Bookmark {
   id: string;                    // UUID
-  order: number;                 // 在分組內的順序 (1, 2, 3...)
+  parentId?: string;             // 父書籤 ID (層級結構)
+  order: number;                 // 在同級書籤內的順序 (1, 2, 3...)
   location: string;              // 位置，格式: path/to/file:line 或 path/to/file:start-end
-  
+
   // AI 生成的內容
   title: string;                 // 簡短標題
   description: string;           // 詳細說明
   category?: BookmarkCategory;   // 分類
   tags?: string[];               // 標籤
-  
+
   // 漂移檢測（可選）
   codeSnapshot?: string;         // 創建時的代碼快照
 }
@@ -149,18 +190,23 @@ interface BookmarkStore {
 
 ### add_bookmark
 
-在指定分組中添加書籤。
+在指定分組中添加書籤, 支持通過 parentId 創建層級結構。
 
 **參數：**
 | 名稱 | 類型 | 必填 | 說明 |
 |------|------|------|------|
 | groupId | string | ✓ | 分組 ID |
+| parentId | string | | 父書籤 ID, 創建子書籤時使用 |
 | location | string | ✓ | 位置，格式: `path/to/file:line` 或 `path/to/file:start-end` |
 | title | string | ✓ | 書籤標題 |
 | description | string | ✓ | 詳細說明 |
-| order | number | | 順序，不填則追加到末尾 |
+| order | number | | 順序，不填則追加到同級末尾 |
 | category | string | | 分類 |
 | tags | string[] | | 標籤列表 |
+
+**層級使用指南：**
+- 函數 A 調用函數 B → B 應該是 A 的子書籤 (使用 parentId)
+- 不要把調用鏈扁平化成 order 1, 2, 3 的同級書籤!
 
 ### list_groups
 
@@ -173,12 +219,14 @@ interface BookmarkStore {
 
 ### list_bookmarks
 
-列出書籤，支持篩選。
+列出書籤，支持篩選和層級過濾。
 
 **參數：**
 | 名稱 | 類型 | 必填 | 說明 |
 |------|------|------|------|
 | groupId | string | | 篩選特定分組 |
+| parentId | string | | 只顯示指定父書籤的子書籤 |
+| includeDescendants | boolean | | 配合 parentId, 包含所有後代而非只有直接子書籤 |
 | filePath | string | | 篩選特定文件 |
 | category | string | | 篩選特定分類 |
 | tags | string[] | | 篩選特定標籤 |
@@ -196,12 +244,13 @@ interface BookmarkStore {
 
 ### update_bookmark
 
-更新書籤內容。
+更新書籤內容, 支持移動層級位置。
 
 **參數：**
 | 名稱 | 類型 | 必填 | 說明 |
 |------|------|------|------|
 | bookmarkId | string | ✓ | 書籤 ID |
+| parentId | string/null | | 新父書籤 ID, 設為 null 移動到頂層, 會檢測循環引用 |
 | location | string | | 新位置 |
 | title | string | | 新標題 |
 | description | string | | 新說明 |
@@ -211,7 +260,7 @@ interface BookmarkStore {
 
 ### remove_bookmark
 
-刪除書籤。
+刪除書籤。如果書籤有子書籤, 會級聯刪除所有子書籤。
 
 **參數：**
 | 名稱 | 類型 | 必填 | 說明 |
@@ -247,16 +296,49 @@ interface BookmarkStore {
 |------|------|------|------|
 | bookmarkId | string | ✓ | 書籤 ID |
 
-**返回：** 書籤詳情及其所屬分組信息
+**返回：** 書籤詳情及其所屬分組信息, 包含 parentId, hasChildren, childCount
+
+### add_child_bookmark
+
+在現有書籤下添加子書籤, 創建層級結構。
+
+**參數：**
+| 名稱 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| parentBookmarkId | string | ✓ | 父書籤 ID |
+| location | string | ✓ | 位置 |
+| title | string | ✓ | 標題 |
+| description | string | ✓ | 說明 |
+| order | number | | 順序 |
+| category | string | | 分類 |
+| tags | string[] | | 標籤 |
+
+**使用場景：**
+- 函數 A 調用函數 B → B 是 A 的子書籤
+- 入口點的多個步驟 → 步驟是入口點的子書籤
+- 高層概念的實現細節 → 細節是概念的子書籤
+
+### get_bookmark_tree
+
+獲取書籤及其所有子書籤的樹狀結構。
+
+**參數：**
+| 名稱 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| bookmarkId | string | ✓ | 書籤 ID |
+| maxDepth | number | | 最大深度 (可選, 默認無限) |
+
+**返回：** 書籤樹, 包含嵌套的 children 數組
 
 ### batch_add_bookmarks
 
-批量添加書籤到分組，比單個添加更高效。
+批量添加書籤到分組，比單個添加更高效。支持批量添加到指定父書籤下。
 
 **參數：**
 | 名稱 | 類型 | 必填 | 說明 |
 |------|------|------|------|
 | groupId | string | ✓ | 分組 ID |
+| parentId | string | | 父書籤 ID, 批量添加的書籤都會成為此父書籤的子書籤 |
 | bookmarks | array | ✓ | 書籤數組，每個元素包含 location, title, description 等字段 |
 
 **bookmarks 數組元素：**
@@ -270,6 +352,8 @@ interface BookmarkStore {
 | tags | string[] | | 標籤 |
 
 **返回：** 添加結果摘要及每個書籤的狀態
+
+**使用技巧：** 創建入口點書籤後, 使用 batch_add_bookmarks 配合 parentId 批量添加所有子步驟
 
 ### clear_all_bookmarks
 

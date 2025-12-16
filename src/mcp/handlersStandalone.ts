@@ -2,6 +2,7 @@ import { BookmarkStoreManagerStandalone } from '../store/bookmarkStoreStandalone
 import {
   CreateGroupArgs,
   AddBookmarkArgs,
+  AddChildBookmarkArgs,
   ListGroupsArgs,
   ListBookmarksArgs,
   UpdateGroupArgs,
@@ -10,6 +11,7 @@ import {
   RemoveGroupArgs,
   GetGroupArgs,
   GetBookmarkArgs,
+  GetBookmarkTreeArgs,
   BatchAddBookmarksArgs,
   ClearAllBookmarksArgs,
   BookmarkCategory
@@ -53,7 +55,7 @@ export class MCPHandlersStandalone {
   // add_bookmark
   addBookmark(args: AddBookmarkArgs): ToolResult {
     try {
-      const { groupId, location, title, description, order, category, tags } = args;
+      const { groupId, parentId, location, title, description, order, category, tags } = args;
 
       if (!groupId || typeof groupId !== 'string') {
         return { success: false, error: 'groupId is required and must be a string' };
@@ -80,26 +82,91 @@ export class MCPHandlersStandalone {
       }
 
       const bookmarkId = this.store.addBookmark(groupId, location, title, description, {
+        parentId,
         order,
         category,
         tags
       });
 
       if (!bookmarkId) {
-        return { success: false, error: `Group with id "${groupId}" not found` };
+        // Could be group not found or parent bookmark not found
+        const group = this.store.getGroup(groupId);
+        if (!group) {
+          return { success: false, error: `Group with id "${groupId}" not found` };
+        }
+        if (parentId) {
+          return { success: false, error: `Parent bookmark with id "${parentId}" not found in group` };
+        }
+        return { success: false, error: `Failed to add bookmark` };
       }
 
       return {
         success: true,
         data: {
           bookmarkId,
-          message: `Successfully added bookmark "${title}" to group`
+          parentId: parentId || null,
+          message: `Successfully added bookmark "${title}"${parentId ? ' as child bookmark' : ' to group'}`
         }
       };
     } catch (error) {
       return {
         success: false,
         error: `Failed to add bookmark: ${error}`
+      };
+    }
+  }
+
+  // add_child_bookmark
+  addChildBookmark(args: AddChildBookmarkArgs): ToolResult {
+    try {
+      const { parentBookmarkId, location, title, description, order, category, tags } = args;
+
+      if (!parentBookmarkId || typeof parentBookmarkId !== 'string') {
+        return { success: false, error: 'parentBookmarkId is required and must be a string' };
+      }
+      if (!location || typeof location !== 'string') {
+        return { success: false, error: 'location is required and must be a string' };
+      }
+      if (!title || typeof title !== 'string') {
+        return { success: false, error: 'title is required and must be a string' };
+      }
+      if (!description || typeof description !== 'string') {
+        return { success: false, error: 'description is required and must be a string' };
+      }
+
+      const validCategories: BookmarkCategory[] = [
+        'entry-point', 'core-logic', 'todo', 'bug',
+        'optimization', 'explanation', 'warning', 'reference'
+      ];
+      if (category && !validCategories.includes(category)) {
+        return {
+          success: false,
+          error: `Invalid category. Must be one of: ${validCategories.join(', ')}`
+        };
+      }
+
+      const bookmarkId = this.store.addChildBookmark(parentBookmarkId, location, title, description, {
+        order,
+        category,
+        tags
+      });
+
+      if (!bookmarkId) {
+        return { success: false, error: `Parent bookmark with id "${parentBookmarkId}" not found` };
+      }
+
+      return {
+        success: true,
+        data: {
+          bookmarkId,
+          parentBookmarkId,
+          message: `Successfully added child bookmark "${title}"`
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to add child bookmark: ${error}`
       };
     }
   }
@@ -145,7 +212,7 @@ export class MCPHandlersStandalone {
   // list_bookmarks
   listBookmarks(args: ListBookmarksArgs): ToolResult {
     try {
-      const { groupId, filePath, category, tags } = args;
+      const { groupId, parentId, includeDescendants, filePath, category, tags } = args;
 
       const validCategories: BookmarkCategory[] = [
         'entry-point', 'core-logic', 'todo', 'bug',
@@ -160,6 +227,8 @@ export class MCPHandlersStandalone {
 
       const results = this.store.listBookmarks({
         groupId,
+        parentId,
+        includeDescendants,
         filePath,
         category,
         tags
@@ -170,6 +239,7 @@ export class MCPHandlersStandalone {
         data: {
           bookmarks: results.map(r => ({
             id: r.bookmark.id,
+            parentId: r.bookmark.parentId || null,
             order: r.bookmark.order,
             location: r.bookmark.location,
             title: r.bookmark.title,
@@ -177,7 +247,8 @@ export class MCPHandlersStandalone {
             category: r.bookmark.category,
             tags: r.bookmark.tags,
             groupId: r.group.id,
-            groupName: r.group.name
+            groupName: r.group.name,
+            hasChildren: this.store.hasChildren(r.bookmark.id)
           })),
           total: results.length
         }
@@ -226,14 +297,15 @@ export class MCPHandlersStandalone {
   // update_bookmark
   updateBookmark(args: UpdateBookmarkArgs): ToolResult {
     try {
-      const { bookmarkId, location, title, description, order, category, tags } = args;
+      const { bookmarkId, parentId, location, title, description, order, category, tags } = args;
 
       if (!bookmarkId || typeof bookmarkId !== 'string') {
         return { success: false, error: 'bookmarkId is required and must be a string' };
       }
 
-      if (location === undefined && title === undefined && description === undefined &&
-          order === undefined && category === undefined && tags === undefined) {
+      if (parentId === undefined && location === undefined && title === undefined &&
+          description === undefined && order === undefined && category === undefined &&
+          tags === undefined) {
         return { success: false, error: 'At least one update field must be provided' };
       }
 
@@ -248,7 +320,8 @@ export class MCPHandlersStandalone {
         };
       }
 
-      const success = this.store.updateBookmark(bookmarkId, {
+      const result = this.store.updateBookmark(bookmarkId, {
+        parentId,
         location,
         title,
         description,
@@ -257,7 +330,21 @@ export class MCPHandlersStandalone {
         tags
       });
 
-      if (!success) {
+      if (result === 'circular_reference') {
+        return {
+          success: false,
+          error: 'Cannot move bookmark: would create circular reference (bookmark cannot be its own ancestor)'
+        };
+      }
+
+      if (result === 'parent_not_found') {
+        return {
+          success: false,
+          error: `Parent bookmark with id "${parentId}" not found in the same group`
+        };
+      }
+
+      if (!result) {
         return { success: false, error: `Bookmark with id "${bookmarkId}" not found` };
       }
 
@@ -353,6 +440,9 @@ export class MCPHandlersStandalone {
         return { success: false, error: `Group with id "${groupId}" not found` };
       }
 
+      // Get tree structure for the group
+      const bookmarkTrees = this.store.getGroupBookmarkTrees(groupId);
+
       return {
         success: true,
         data: {
@@ -364,15 +454,20 @@ export class MCPHandlersStandalone {
             createdAt: group.createdAt,
             updatedAt: group.updatedAt,
             createdBy: group.createdBy,
+            // Flat list with parentId for compatibility
             bookmarks: group.bookmarks.map(b => ({
               id: b.id,
+              parentId: b.parentId || null,
               order: b.order,
               location: b.location,
               title: b.title,
               description: b.description,
               category: b.category,
-              tags: b.tags
-            }))
+              tags: b.tags,
+              hasChildren: this.store.hasChildren(b.id)
+            })),
+            // Tree structure for hierarchical display
+            bookmarkTrees
           }
         }
       };
@@ -399,19 +494,23 @@ export class MCPHandlersStandalone {
       }
 
       const { bookmark, group } = result;
+      const childCount = this.store.getChildBookmarks(bookmarkId).length;
 
       return {
         success: true,
         data: {
           bookmark: {
             id: bookmark.id,
+            parentId: bookmark.parentId || null,
             order: bookmark.order,
             location: bookmark.location,
             title: bookmark.title,
             description: bookmark.description,
             category: bookmark.category,
             tags: bookmark.tags,
-            codeSnapshot: bookmark.codeSnapshot
+            codeSnapshot: bookmark.codeSnapshot,
+            hasChildren: childCount > 0,
+            childCount
           },
           group: {
             id: group.id,
@@ -427,10 +526,44 @@ export class MCPHandlersStandalone {
     }
   }
 
+  // get_bookmark_tree - 获取书签及其所有子书签的树形结构
+  getBookmarkTree(args: GetBookmarkTreeArgs): ToolResult {
+    try {
+      const { bookmarkId, maxDepth } = args;
+
+      if (!bookmarkId || typeof bookmarkId !== 'string') {
+        return { success: false, error: 'bookmarkId is required and must be a string' };
+      }
+
+      const tree = this.store.getBookmarkTree(bookmarkId, maxDepth);
+      if (!tree) {
+        return { success: false, error: `Bookmark with id "${bookmarkId}" not found` };
+      }
+
+      const result = this.store.getBookmark(bookmarkId);
+
+      return {
+        success: true,
+        data: {
+          tree,
+          group: result ? {
+            id: result.group.id,
+            name: result.group.name
+          } : null
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to get bookmark tree: ${error}`
+      };
+    }
+  }
+
   // batch_add_bookmarks - 批量添加书签到分组
   batchAddBookmarks(args: BatchAddBookmarksArgs): ToolResult {
     try {
-      const { groupId, bookmarks } = args;
+      const { groupId, parentId, bookmarks } = args;
 
       if (!groupId || typeof groupId !== 'string') {
         return { success: false, error: 'groupId is required and must be a string' };
@@ -443,6 +576,14 @@ export class MCPHandlersStandalone {
       const group = this.store.getGroup(groupId);
       if (!group) {
         return { success: false, error: `Group with id "${groupId}" not found` };
+      }
+
+      // Validate parentId if provided
+      if (parentId) {
+        const parentBookmark = group.bookmarks.find(b => b.id === parentId);
+        if (!parentBookmark) {
+          return { success: false, error: `Parent bookmark with id "${parentId}" not found in group` };
+        }
       }
 
       const validCategories: BookmarkCategory[] = [
@@ -475,6 +616,7 @@ export class MCPHandlersStandalone {
         }
 
         const bookmarkId = this.store.addBookmark(groupId, b.location, b.title, b.description, {
+          parentId,
           order: b.order,
           category: b.category,
           tags: b.tags
@@ -491,7 +633,8 @@ export class MCPHandlersStandalone {
       return {
         success: successCount > 0,
         data: {
-          message: `Added ${successCount}/${bookmarks.length} bookmarks to group "${group.name}"`,
+          message: `Added ${successCount}/${bookmarks.length} bookmarks${parentId ? ' as children' : ''} to group "${group.name}"`,
+          parentId: parentId || null,
           results
         }
       };

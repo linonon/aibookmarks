@@ -128,6 +128,21 @@
         "command": "aiBookmarks.moveBookmark",
         "title": "Move to Group...",
         "icon": "$(move)"
+      },
+      {
+        "command": "aiBookmarks.addChildBookmark",
+        "title": "Add Child Bookmark",
+        "icon": "$(add)"
+      },
+      {
+        "command": "aiBookmarks.copyBookmarkInfo",
+        "title": "Copy Bookmark Info",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "aiBookmarks.copyGroupInfo",
+        "title": "Copy Group Info",
+        "icon": "$(copy)"
       }
     ],
     "menus": {
@@ -170,28 +185,37 @@
       "view/item/context": [
         {
           "command": "aiBookmarks.editBookmark",
-          "when": "view == aiBookmarks && viewItem == bookmark",
+          "when": "view == aiBookmarks && viewItem =~ /^bookmark/",
           "group": "inline"
         },
         {
+          "command": "aiBookmarks.addChildBookmark",
+          "when": "view == aiBookmarks && viewItem =~ /^bookmark/",
+          "group": "1_modification"
+        },
+        {
           "command": "aiBookmarks.checkValidity",
-          "when": "view == aiBookmarks && viewItem == bookmark"
+          "when": "view == aiBookmarks && viewItem =~ /^bookmark/"
         },
         {
           "command": "aiBookmarks.delete",
-          "when": "view == aiBookmarks && viewItem == bookmark"
+          "when": "view == aiBookmarks && viewItem =~ /^bookmark/"
         },
         {
           "command": "aiBookmarks.moveBookmarkUp",
-          "when": "view == aiBookmarks && viewItem == bookmark"
+          "when": "view == aiBookmarks && viewItem =~ /^bookmark/"
         },
         {
           "command": "aiBookmarks.moveBookmarkDown",
-          "when": "view == aiBookmarks && viewItem == bookmark"
+          "when": "view == aiBookmarks && viewItem =~ /^bookmark/"
         },
         {
           "command": "aiBookmarks.moveBookmark",
-          "when": "view == aiBookmarks && viewItem == bookmark"
+          "when": "view == aiBookmarks && viewItem =~ /^bookmark/"
+        },
+        {
+          "command": "aiBookmarks.copyBookmarkInfo",
+          "when": "view == aiBookmarks && viewItem =~ /^bookmark/"
         },
         {
           "command": "aiBookmarks.renameGroup",
@@ -200,6 +224,10 @@
         },
         {
           "command": "aiBookmarks.editGroup",
+          "when": "view == aiBookmarks && viewItem == group"
+        },
+        {
+          "command": "aiBookmarks.copyGroupInfo",
           "when": "view == aiBookmarks && viewItem == group"
         },
         {
@@ -247,7 +275,7 @@
         "command": "aiBookmarks.delete",
         "key": "delete",
         "mac": "cmd+backspace",
-        "when": "view == aiBookmarks && viewItem == bookmark"
+        "when": "view == aiBookmarks && viewItem =~ /^bookmark/"
       }
     ],
     "configuration": {

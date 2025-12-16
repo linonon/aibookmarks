@@ -34,7 +34,30 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'add_bookmark',
-    description: 'Add a bookmark to a group. Bookmarks mark important code locations with explanations.',
+    description: `Add a bookmark to a group. Bookmarks mark important code locations with explanations. Supports hierarchical bookmarks via parentId.
+
+**IMPORTANT - Formatting Guidelines for AI:**
+- title: Short, concise identifier (e.g., "handlePlaceBetRequest" or "下注核心入口")
+- description: Detailed explanation WITHOUT repeating the title. Use clear formatting:
+  - Start with a brief summary sentence
+  - Use numbered steps for flows: "1) step one 2) step two"
+  - Keep it focused and readable
+
+**Example:**
+- title: "handlePlaceBetRequest"
+- description: "下注核心逻辑入口. 流程: 1) validatePlaceBetRequest 验证 2) CreateInitialBetOrder 创建订单 3) processWalletDebit 扣款"
+
+DO NOT include the title text in the description - it will be displayed separately.
+
+**HIERARCHY GUIDELINES - When to create child bookmarks (use parentId or add_child_bookmark):**
+- Function A calls Function B → B should be CHILD of A
+- Entry point with multiple steps → steps are CHILDREN of entry point
+- High-level concept with implementation details → details are CHILDREN
+- Caller → Callee relationship = Parent → Child relationship
+
+**DO NOT flatten call chains into siblings with order 1, 2, 3!**
+WRONG: 1. handleRequest, 2. validateInput, 3. processData (all siblings)
+CORRECT: 1. handleRequest (parent) → 1.1 validateInput (child) → 1.2 processData (child)`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -42,21 +65,25 @@ const TOOLS: Tool[] = [
           type: 'string',
           description: 'The ID of the group to add the bookmark to'
         },
+        parentId: {
+          type: 'string',
+          description: 'Parent bookmark ID. If not specified, creates a top-level bookmark'
+        },
         location: {
           type: 'string',
           description: 'Location in format "path/to/file:line" or "path/to/file:start-end" for ranges'
         },
         title: {
           type: 'string',
-          description: 'Short title for the bookmark'
+          description: 'Short title (5-30 chars). DO NOT repeat in description.'
         },
         description: {
           type: 'string',
-          description: 'Detailed description explaining the code at this location'
+          description: 'Detailed explanation. DO NOT include title. Use: brief summary + numbered steps for flows.'
         },
         order: {
           type: 'number',
-          description: 'Order within the group (optional, appends to end if not specified)'
+          description: 'Order within siblings (optional, appends to end if not specified)'
         },
         category: {
           type: 'string',
@@ -70,6 +97,59 @@ const TOOLS: Tool[] = [
         }
       },
       required: ['groupId', 'location', 'title', 'description']
+    }
+  },
+  {
+    name: 'add_child_bookmark',
+    description: `Add a child bookmark under an existing bookmark. Creates hierarchical structure.
+
+**USE THIS TOOL when the new bookmark represents:**
+- A function/method CALLED BY the parent bookmark's function
+- Implementation details of the parent concept
+- A step that belongs under a parent flow
+- Code that is logically "inside" or "part of" the parent
+
+**Example scenarios:**
+- Parent: "handlePlaceBet" → Child: "validateBetAmount" (called inside parent)
+- Parent: "Authentication Flow" → Child: "Token Validation" (sub-step)
+- Parent: "Database Layer" → Child: "Connection Pool Init" (component)
+
+**Formatting:** Same as add_bookmark - title should be short, description should NOT repeat title.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        parentBookmarkId: {
+          type: 'string',
+          description: 'The ID of the parent bookmark'
+        },
+        location: {
+          type: 'string',
+          description: 'Location in format "path/to/file:line" or "path/to/file:start-end" for ranges'
+        },
+        title: {
+          type: 'string',
+          description: 'Short title (5-30 chars). DO NOT repeat in description.'
+        },
+        description: {
+          type: 'string',
+          description: 'Detailed explanation. DO NOT include title. Use: brief summary + numbered steps for flows.'
+        },
+        order: {
+          type: 'number',
+          description: 'Order within siblings (optional, appends to end if not specified)'
+        },
+        category: {
+          type: 'string',
+          enum: ['entry-point', 'core-logic', 'todo', 'bug', 'optimization', 'explanation', 'warning', 'reference'],
+          description: 'Bookmark category'
+        },
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Tags for filtering'
+        }
+      },
+      required: ['parentBookmarkId', 'location', 'title', 'description']
     }
   },
   {
@@ -88,13 +168,21 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'list_bookmarks',
-    description: 'List bookmarks with optional filters.',
+    description: 'List bookmarks with optional filters. Supports hierarchical filtering via parentId.',
     inputSchema: {
       type: 'object',
       properties: {
         groupId: {
           type: 'string',
           description: 'Filter by group ID'
+        },
+        parentId: {
+          type: 'string',
+          description: 'Filter to only show children of the specified parent bookmark'
+        },
+        includeDescendants: {
+          type: 'boolean',
+          description: 'If true and parentId is specified, include all descendants (not just direct children)'
         },
         filePath: {
           type: 'string',
@@ -137,13 +225,17 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'update_bookmark',
-    description: 'Update a bookmark\'s properties.',
+    description: 'Update a bookmark\'s properties. Supports moving bookmark in hierarchy via parentId.',
     inputSchema: {
       type: 'object',
       properties: {
         bookmarkId: {
           type: 'string',
           description: 'The ID of the bookmark to update'
+        },
+        parentId: {
+          type: ['string', 'null'],
+          description: 'New parent bookmark ID. Set to null to move to top level. Circular references are prevented.'
         },
         location: {
           type: 'string',
@@ -159,7 +251,7 @@ const TOOLS: Tool[] = [
         },
         order: {
           type: 'number',
-          description: 'New order within group'
+          description: 'New order within siblings'
         },
         category: {
           type: 'string',
@@ -177,7 +269,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'remove_bookmark',
-    description: 'Remove a bookmark by its ID.',
+    description: 'Remove a bookmark by its ID. If the bookmark has children, all child bookmarks are also removed (cascade delete).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -205,7 +297,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'get_group',
-    description: 'Get a single bookmark group with all its bookmarks.',
+    description: 'Get a single bookmark group with all its bookmarks. Returns both flat list and tree structure.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -219,7 +311,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'get_bookmark',
-    description: 'Get a single bookmark by its ID with its group info.',
+    description: 'Get a single bookmark by its ID with its group info and child count.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -232,14 +324,41 @@ const TOOLS: Tool[] = [
     }
   },
   {
+    name: 'get_bookmark_tree',
+    description: 'Get a bookmark and all its children as a tree structure.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        bookmarkId: {
+          type: 'string',
+          description: 'The ID of the bookmark to get tree for'
+        },
+        maxDepth: {
+          type: 'number',
+          description: 'Maximum depth to traverse (optional, unlimited by default)'
+        }
+      },
+      required: ['bookmarkId']
+    }
+  },
+  {
     name: 'batch_add_bookmarks',
-    description: 'Add multiple bookmarks to a group in a single operation. More efficient than adding one by one.',
+    description: `Add multiple bookmarks to a group in a single operation. More efficient than adding one by one.
+
+**TIP:** Use parentId parameter to add multiple children under a parent bookmark efficiently.
+Example: After creating a parent bookmark for "handleRequest", use batch_add_bookmarks with parentId to add all its sub-functions as children.
+
+**Formatting Guidelines:** Same as add_bookmark - each bookmark's title should be short, description should NOT repeat title.`,
     inputSchema: {
       type: 'object',
       properties: {
         groupId: {
           type: 'string',
           description: 'The ID of the group to add bookmarks to'
+        },
+        parentId: {
+          type: 'string',
+          description: 'Parent bookmark ID. All bookmarks in this batch will be added as children of this parent.'
         },
         bookmarks: {
           type: 'array',
@@ -253,15 +372,15 @@ const TOOLS: Tool[] = [
               },
               title: {
                 type: 'string',
-                description: 'Short title for the bookmark'
+                description: 'Short title (5-30 chars). DO NOT repeat in description.'
               },
               description: {
                 type: 'string',
-                description: 'Detailed description'
+                description: 'Detailed explanation. DO NOT include title.'
               },
               order: {
                 type: 'number',
-                description: 'Order within the group (optional)'
+                description: 'Order within siblings (optional)'
               },
               category: {
                 type: 'string',
@@ -336,6 +455,9 @@ export class MCPServer {
         case 'add_bookmark':
           result = this.handlers.addBookmark(args as unknown as Parameters<MCPHandlers['addBookmark']>[0]);
           break;
+        case 'add_child_bookmark':
+          result = this.handlers.addChildBookmark(args as unknown as Parameters<MCPHandlers['addChildBookmark']>[0]);
+          break;
         case 'list_groups':
           result = this.handlers.listGroups(args as unknown as Parameters<MCPHandlers['listGroups']>[0]);
           break;
@@ -359,6 +481,9 @@ export class MCPServer {
           break;
         case 'get_bookmark':
           result = this.handlers.getBookmark(args as unknown as Parameters<MCPHandlers['getBookmark']>[0]);
+          break;
+        case 'get_bookmark_tree':
+          result = this.handlers.getBookmarkTree(args as unknown as Parameters<MCPHandlers['getBookmarkTree']>[0]);
           break;
         case 'batch_add_bookmarks':
           result = this.handlers.batchAddBookmarks(args as unknown as Parameters<MCPHandlers['batchAddBookmarks']>[0]);

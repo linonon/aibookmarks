@@ -6,6 +6,7 @@ import {
   BookmarkStore,
   BookmarkGroup,
   Bookmark,
+  BookmarkWithChildren,
   BookmarkCategory,
   createDefaultStore
 } from './types';
@@ -176,6 +177,7 @@ export class BookmarkStoreManager {
     title: string,
     description: string,
     options: {
+      parentId?: string;
       order?: number;
       category?: BookmarkCategory;
       tags?: string[];
@@ -187,18 +189,28 @@ export class BookmarkStoreManager {
       return undefined;
     }
 
+    // 验证 parentId 是否有效
+    if (options.parentId) {
+      const parentBookmark = group.bookmarks.find(b => b.id === options.parentId);
+      if (!parentBookmark) {
+        return undefined; // 父书签不存在
+      }
+    }
+
     const id = uuidv4();
 
-    // 确定 order
+    // 确定 order (在同级书签中的顺序)
     let order = options.order;
     if (order === undefined) {
-      order = group.bookmarks.length > 0
-        ? Math.max(...group.bookmarks.map(b => b.order)) + 1
+      const siblings = group.bookmarks.filter(b => b.parentId === options.parentId);
+      order = siblings.length > 0
+        ? Math.max(...siblings.map(b => b.order)) + 1
         : 1;
     }
 
     const bookmark: Bookmark = {
       id,
+      parentId: options.parentId,
       order,
       location: normalizePath(location, this.workspaceRoot),
       title,
@@ -209,13 +221,40 @@ export class BookmarkStoreManager {
     };
 
     group.bookmarks.push(bookmark);
-    group.bookmarks.sort((a, b) => a.order - b.order);
     group.updatedAt = nowISO();
 
     this.save();
     this._onDidChange.fire();
 
     return id;
+  }
+
+  // 添加子书签 (语义化接口)
+  addChildBookmark(
+    parentBookmarkId: string,
+    location: string,
+    title: string,
+    description: string,
+    options: {
+      order?: number;
+      category?: BookmarkCategory;
+      tags?: string[];
+      codeSnapshot?: string;
+    } = {}
+  ): string | undefined {
+    // 找到父书签所在的分组
+    const parentResult = this.getBookmark(parentBookmarkId);
+    if (!parentResult) {
+      return undefined;
+    }
+
+    return this.addBookmark(
+      parentResult.group.id,
+      location,
+      title,
+      description,
+      { ...options, parentId: parentBookmarkId }
+    );
   }
 
   getBookmark(bookmarkId: string): { bookmark: Bookmark; group: BookmarkGroup } | undefined {
@@ -230,6 +269,9 @@ export class BookmarkStoreManager {
 
   listBookmarks(filters: {
     groupId?: string;
+    parentId?: string;           // 只列出指定父书签的子书签
+    includeDescendants?: boolean; // 是否包含所有后代
+    topLevelOnly?: boolean;       // 只返回顶层书签
     filePath?: string;
     category?: BookmarkCategory;
     tags?: string[];
@@ -241,8 +283,24 @@ export class BookmarkStoreManager {
       : this.store.groups;
 
     for (const group of groups) {
-      for (const bookmark of group.bookmarks) {
-        // Apply filters
+      let bookmarksToCheck = group.bookmarks;
+
+      // 如果指定了 parentId, 先过滤子书签
+      if (filters.parentId !== undefined) {
+        if (filters.includeDescendants) {
+          // 获取所有后代
+          bookmarksToCheck = this.getDescendants(group, filters.parentId);
+        } else {
+          // 只获取直接子书签
+          bookmarksToCheck = group.bookmarks.filter(b => b.parentId === filters.parentId);
+        }
+      } else if (filters.topLevelOnly) {
+        // 只返回顶层书签
+        bookmarksToCheck = group.bookmarks.filter(b => !b.parentId);
+      }
+
+      for (const bookmark of bookmarksToCheck) {
+        // Apply other filters
         if (filters.filePath) {
           const parsed = parseLocation(bookmark.location);
           const normalizedFilter = normalizePath(filters.filePath, this.workspaceRoot);
@@ -266,12 +324,101 @@ export class BookmarkStoreManager {
       }
     }
 
+    // 按 order 排序
+    results.sort((a, b) => a.bookmark.order - b.bookmark.order);
+
     return results;
+  }
+
+  // 获取书签的所有后代
+  private getDescendants(group: BookmarkGroup, parentId: string): Bookmark[] {
+    const descendants: Bookmark[] = [];
+    const directChildren = group.bookmarks.filter(b => b.parentId === parentId);
+
+    for (const child of directChildren) {
+      descendants.push(child);
+      descendants.push(...this.getDescendants(group, child.id));
+    }
+
+    return descendants;
+  }
+
+  // 获取书签的直接子书签
+  getChildBookmarks(bookmarkId: string): Array<{ bookmark: Bookmark; group: BookmarkGroup }> {
+    const result = this.getBookmark(bookmarkId);
+    if (!result) {
+      return [];
+    }
+
+    return this.listBookmarks({
+      groupId: result.group.id,
+      parentId: bookmarkId
+    });
+  }
+
+  // 检查书签是否有子书签
+  hasChildren(bookmarkId: string): boolean {
+    for (const group of this.store.groups) {
+      if (group.bookmarks.some(b => b.parentId === bookmarkId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // 获取书签树 (递归结构)
+  getBookmarkTree(bookmarkId: string, maxDepth?: number): BookmarkWithChildren | undefined {
+    const result = this.getBookmark(bookmarkId);
+    if (!result) {
+      return undefined;
+    }
+
+    return this.buildBookmarkTree(result.bookmark, result.group, maxDepth, 0);
+  }
+
+  private buildBookmarkTree(
+    bookmark: Bookmark,
+    group: BookmarkGroup,
+    maxDepth: number | undefined,
+    currentDepth: number
+  ): BookmarkWithChildren {
+    const children: BookmarkWithChildren[] = [];
+
+    // 如果没有达到最大深度, 继续构建子树
+    if (maxDepth === undefined || currentDepth < maxDepth) {
+      const directChildren = group.bookmarks
+        .filter(b => b.parentId === bookmark.id)
+        .sort((a, b) => a.order - b.order);
+
+      for (const child of directChildren) {
+        children.push(this.buildBookmarkTree(child, group, maxDepth, currentDepth + 1));
+      }
+    }
+
+    return {
+      ...bookmark,
+      children
+    };
+  }
+
+  // 获取分组的顶层书签树
+  getGroupBookmarkTrees(groupId: string): BookmarkWithChildren[] {
+    const group = this.getGroup(groupId);
+    if (!group) {
+      return [];
+    }
+
+    const topLevelBookmarks = group.bookmarks
+      .filter(b => !b.parentId)
+      .sort((a, b) => a.order - b.order);
+
+    return topLevelBookmarks.map(b => this.buildBookmarkTree(b, group, undefined, 0));
   }
 
   updateBookmark(
     bookmarkId: string,
     updates: {
+      parentId?: string | null;   // null 表示移到顶层
       location?: string;
       title?: string;
       description?: string;
@@ -287,6 +434,35 @@ export class BookmarkStoreManager {
 
     const { bookmark, group } = result;
 
+    // 处理 parentId 变更
+    if (updates.parentId !== undefined) {
+      const newParentId = updates.parentId === null ? undefined : updates.parentId;
+
+      // 验证新父书签
+      if (newParentId) {
+        // 检查父书签是否存在
+        const parentBookmark = group.bookmarks.find(b => b.id === newParentId);
+        if (!parentBookmark) {
+          return false; // 父书签不存在
+        }
+
+        // 检查是否会形成循环引用
+        if (this.wouldCreateCircularReference(group, bookmarkId, newParentId)) {
+          return false; // 会形成循环引用
+        }
+      }
+
+      bookmark.parentId = newParentId;
+
+      // 重新计算 order
+      const siblings = group.bookmarks.filter(
+        b => b.parentId === newParentId && b.id !== bookmarkId
+      );
+      bookmark.order = siblings.length > 0
+        ? Math.max(...siblings.map(b => b.order)) + 1
+        : 1;
+    }
+
     if (updates.location !== undefined) {
       bookmark.location = normalizePath(updates.location, this.workspaceRoot);
     }
@@ -298,7 +474,6 @@ export class BookmarkStoreManager {
     }
     if (updates.order !== undefined) {
       bookmark.order = updates.order;
-      group.bookmarks.sort((a, b) => a.order - b.order);
     }
     if (updates.category !== undefined) {
       bookmark.category = updates.category;
@@ -315,20 +490,44 @@ export class BookmarkStoreManager {
     return true;
   }
 
-  removeBookmark(bookmarkId: string): boolean {
+  // 检查是否会形成循环引用
+  private wouldCreateCircularReference(
+    group: BookmarkGroup,
+    bookmarkId: string,
+    newParentId: string
+  ): boolean {
+    // 如果新父节点就是自己, 形成循环
+    if (bookmarkId === newParentId) {
+      return true;
+    }
+
+    // 检查新父节点是否是当前节点的后代
+    const descendants = this.getDescendants(group, bookmarkId);
+    return descendants.some(d => d.id === newParentId);
+  }
+
+  removeBookmark(bookmarkId: string): { success: boolean; removedCount: number } {
     for (const group of this.store.groups) {
-      const index = group.bookmarks.findIndex(b => b.id === bookmarkId);
-      if (index !== -1) {
-        group.bookmarks.splice(index, 1);
+      const bookmark = group.bookmarks.find(b => b.id === bookmarkId);
+      if (bookmark) {
+        // 获取所有后代书签
+        const descendants = this.getDescendants(group, bookmarkId);
+        const idsToRemove = new Set([bookmarkId, ...descendants.map(d => d.id)]);
+
+        // 删除书签及其所有后代
+        const originalCount = group.bookmarks.length;
+        group.bookmarks = group.bookmarks.filter(b => !idsToRemove.has(b.id));
+        const removedCount = originalCount - group.bookmarks.length;
+
         group.updatedAt = nowISO();
 
         this.save();
         this._onDidChange.fire();
 
-        return true;
+        return { success: true, removedCount };
       }
     }
-    return false;
+    return { success: false, removedCount: 0 };
   }
 
   // Get bookmarks by file
@@ -464,7 +663,7 @@ export class BookmarkStoreManager {
     return true;
   }
 
-  // Reorder bookmark within its group (move up or down)
+  // Reorder bookmark within siblings (same parent level)
   reorderBookmark(bookmarkId: string, direction: 'up' | 'down'): boolean {
     const result = this.getBookmark(bookmarkId);
     if (!result) {
@@ -472,28 +671,32 @@ export class BookmarkStoreManager {
     }
 
     const { bookmark, group } = result;
-    const currentIndex = group.bookmarks.findIndex(b => b.id === bookmarkId);
+
+    // 获取同级书签 (相同 parentId)
+    const siblings = group.bookmarks
+      .filter(b => b.parentId === bookmark.parentId)
+      .sort((a, b) => a.order - b.order);
+
+    const currentIndex = siblings.findIndex(b => b.id === bookmarkId);
 
     if (currentIndex === -1) {
       return false;
     }
 
-    // Calculate new index
+    // Calculate new index within siblings
     const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
     // Check bounds
-    if (newIndex < 0 || newIndex >= group.bookmarks.length) {
+    if (newIndex < 0 || newIndex >= siblings.length) {
       return false;
     }
 
-    // Swap orders
-    const otherBookmark = group.bookmarks[newIndex];
+    // Swap orders with sibling
+    const otherBookmark = siblings[newIndex];
     const tempOrder = bookmark.order;
     bookmark.order = otherBookmark.order;
     otherBookmark.order = tempOrder;
 
-    // Re-sort bookmarks by order
-    group.bookmarks.sort((a, b) => a.order - b.order);
     group.updatedAt = nowISO();
 
     this.save();
@@ -502,56 +705,64 @@ export class BookmarkStoreManager {
     return true;
   }
 
-  // Move bookmark to another group
-  moveBookmarkToGroup(bookmarkId: string, targetGroupId: string): boolean {
+  // Move bookmark (and its children) to another group
+  moveBookmarkToGroup(bookmarkId: string, targetGroupId: string): { success: boolean; movedCount: number } {
     // Find the bookmark and its current group
     let sourceGroup: BookmarkGroup | undefined;
-    let bookmarkIndex = -1;
     let bookmark: Bookmark | undefined;
 
     for (const group of this.store.groups) {
-      const index = group.bookmarks.findIndex(b => b.id === bookmarkId);
-      if (index !== -1) {
+      const found = group.bookmarks.find(b => b.id === bookmarkId);
+      if (found) {
         sourceGroup = group;
-        bookmarkIndex = index;
-        bookmark = group.bookmarks[index];
+        bookmark = found;
         break;
       }
     }
 
-    if (!sourceGroup || !bookmark || bookmarkIndex === -1) {
-      return false;
+    if (!sourceGroup || !bookmark) {
+      return { success: false, movedCount: 0 };
     }
 
     // Find target group
     const targetGroup = this.store.groups.find(g => g.id === targetGroupId);
     if (!targetGroup) {
-      return false;
+      return { success: false, movedCount: 0 };
     }
 
     // Don't move to same group
     if (sourceGroup.id === targetGroup.id) {
-      return false;
+      return { success: false, movedCount: 0 };
     }
 
-    // Remove from source group
-    sourceGroup.bookmarks.splice(bookmarkIndex, 1);
+    // 获取书签及其所有后代
+    const descendants = this.getDescendants(sourceGroup, bookmarkId);
+    const idsToMove = new Set([bookmarkId, ...descendants.map(d => d.id)]);
+
+    // 从源分组中移除
+    const bookmarksToMove = sourceGroup.bookmarks.filter(b => idsToMove.has(b.id));
+    sourceGroup.bookmarks = sourceGroup.bookmarks.filter(b => !idsToMove.has(b.id));
     sourceGroup.updatedAt = nowISO();
 
-    // Calculate new order for target group
-    const newOrder = targetGroup.bookmarks.length > 0
-      ? Math.max(...targetGroup.bookmarks.map(b => b.order)) + 1
-      : 1;
-    bookmark.order = newOrder;
+    // 移动的书签变为顶层 (清除 parentId)
+    bookmark.parentId = undefined;
 
-    // Add to target group
-    targetGroup.bookmarks.push(bookmark);
+    // Calculate new order for target group (顶层)
+    const topLevelInTarget = targetGroup.bookmarks.filter(b => !b.parentId);
+    bookmark.order = topLevelInTarget.length > 0
+      ? Math.max(...topLevelInTarget.map(b => b.order)) + 1
+      : 1;
+
+    // Add all bookmarks to target group
+    for (const b of bookmarksToMove) {
+      targetGroup.bookmarks.push(b);
+    }
     targetGroup.updatedAt = nowISO();
 
     this.save();
     this._onDidChange.fire();
 
-    return true;
+    return { success: true, movedCount: bookmarksToMove.length };
   }
 
   // Adjust bookmarks when document changes (line drift handling)

@@ -6,6 +6,7 @@ import {
   BookmarkStore,
   BookmarkGroup,
   Bookmark,
+  BookmarkWithChildren,
   BookmarkCategory,
   createDefaultStore
 } from './types';
@@ -141,6 +142,7 @@ export class BookmarkStoreManagerStandalone extends EventEmitter {
     title: string,
     description: string,
     options: {
+      parentId?: string;
       order?: number;
       category?: BookmarkCategory;
       tags?: string[];
@@ -152,18 +154,28 @@ export class BookmarkStoreManagerStandalone extends EventEmitter {
       return undefined;
     }
 
+    // Validate parentId if provided
+    if (options.parentId) {
+      const parentBookmark = group.bookmarks.find(b => b.id === options.parentId);
+      if (!parentBookmark) {
+        return undefined; // Parent bookmark not found
+      }
+    }
+
     const id = uuidv4();
 
-    // Determine order
+    // Determine order (within siblings - same parentId)
     let order = options.order;
     if (order === undefined) {
-      order = group.bookmarks.length > 0
-        ? Math.max(...group.bookmarks.map(b => b.order)) + 1
+      const siblings = group.bookmarks.filter(b => b.parentId === options.parentId);
+      order = siblings.length > 0
+        ? Math.max(...siblings.map(b => b.order)) + 1
         : 1;
     }
 
     const bookmark: Bookmark = {
       id,
+      parentId: options.parentId,
       order,
       location: normalizePath(location, this.workspaceRoot),
       title,
@@ -174,13 +186,40 @@ export class BookmarkStoreManagerStandalone extends EventEmitter {
     };
 
     group.bookmarks.push(bookmark);
-    group.bookmarks.sort((a, b) => a.order - b.order);
     group.updatedAt = nowISO();
 
     this.save();
     this.emit('change');
 
     return id;
+  }
+
+  // Add child bookmark (semantic interface)
+  addChildBookmark(
+    parentBookmarkId: string,
+    location: string,
+    title: string,
+    description: string,
+    options: {
+      order?: number;
+      category?: BookmarkCategory;
+      tags?: string[];
+      codeSnapshot?: string;
+    } = {}
+  ): string | undefined {
+    // Find parent bookmark's group
+    const parentResult = this.getBookmark(parentBookmarkId);
+    if (!parentResult) {
+      return undefined;
+    }
+
+    return this.addBookmark(
+      parentResult.group.id,
+      location,
+      title,
+      description,
+      { ...options, parentId: parentBookmarkId }
+    );
   }
 
   getBookmark(bookmarkId: string): { bookmark: Bookmark; group: BookmarkGroup } | undefined {
@@ -195,6 +234,9 @@ export class BookmarkStoreManagerStandalone extends EventEmitter {
 
   listBookmarks(filters: {
     groupId?: string;
+    parentId?: string;           // Only list children of specified parent
+    includeDescendants?: boolean; // Include all descendants
+    topLevelOnly?: boolean;       // Only return top-level bookmarks
     filePath?: string;
     category?: BookmarkCategory;
     tags?: string[];
@@ -206,8 +248,24 @@ export class BookmarkStoreManagerStandalone extends EventEmitter {
       : this.store.groups;
 
     for (const group of groups) {
-      for (const bookmark of group.bookmarks) {
-        // Apply filters
+      let bookmarksToCheck = group.bookmarks;
+
+      // Filter by parentId
+      if (filters.parentId !== undefined) {
+        if (filters.includeDescendants) {
+          // Get all descendants
+          bookmarksToCheck = this.getDescendants(group, filters.parentId);
+        } else {
+          // Only direct children
+          bookmarksToCheck = group.bookmarks.filter(b => b.parentId === filters.parentId);
+        }
+      } else if (filters.topLevelOnly) {
+        // Only top-level bookmarks
+        bookmarksToCheck = group.bookmarks.filter(b => !b.parentId);
+      }
+
+      for (const bookmark of bookmarksToCheck) {
+        // Apply other filters
         if (filters.filePath) {
           const parsed = parseLocation(bookmark.location);
           const normalizedFilter = normalizePath(filters.filePath, this.workspaceRoot);
@@ -231,12 +289,101 @@ export class BookmarkStoreManagerStandalone extends EventEmitter {
       }
     }
 
+    // Sort by order
+    results.sort((a, b) => a.bookmark.order - b.bookmark.order);
+
     return results;
+  }
+
+  // Get all descendants of a bookmark
+  private getDescendants(group: BookmarkGroup, parentId: string): Bookmark[] {
+    const descendants: Bookmark[] = [];
+    const directChildren = group.bookmarks.filter(b => b.parentId === parentId);
+
+    for (const child of directChildren) {
+      descendants.push(child);
+      descendants.push(...this.getDescendants(group, child.id));
+    }
+
+    return descendants;
+  }
+
+  // Get direct children of a bookmark
+  getChildBookmarks(bookmarkId: string): Array<{ bookmark: Bookmark; group: BookmarkGroup }> {
+    const result = this.getBookmark(bookmarkId);
+    if (!result) {
+      return [];
+    }
+
+    return this.listBookmarks({
+      groupId: result.group.id,
+      parentId: bookmarkId
+    });
+  }
+
+  // Check if bookmark has children
+  hasChildren(bookmarkId: string): boolean {
+    for (const group of this.store.groups) {
+      if (group.bookmarks.some(b => b.parentId === bookmarkId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Get bookmark tree (recursive structure)
+  getBookmarkTree(bookmarkId: string, maxDepth?: number): BookmarkWithChildren | undefined {
+    const result = this.getBookmark(bookmarkId);
+    if (!result) {
+      return undefined;
+    }
+
+    return this.buildBookmarkTree(result.bookmark, result.group, maxDepth, 0);
+  }
+
+  private buildBookmarkTree(
+    bookmark: Bookmark,
+    group: BookmarkGroup,
+    maxDepth: number | undefined,
+    currentDepth: number
+  ): BookmarkWithChildren {
+    const children: BookmarkWithChildren[] = [];
+
+    // Build subtree if not at max depth
+    if (maxDepth === undefined || currentDepth < maxDepth) {
+      const directChildren = group.bookmarks
+        .filter(b => b.parentId === bookmark.id)
+        .sort((a, b) => a.order - b.order);
+
+      for (const child of directChildren) {
+        children.push(this.buildBookmarkTree(child, group, maxDepth, currentDepth + 1));
+      }
+    }
+
+    return {
+      ...bookmark,
+      children
+    };
+  }
+
+  // Get top-level bookmark trees for a group
+  getGroupBookmarkTrees(groupId: string): BookmarkWithChildren[] {
+    const group = this.getGroup(groupId);
+    if (!group) {
+      return [];
+    }
+
+    const topLevelBookmarks = group.bookmarks
+      .filter(b => !b.parentId)
+      .sort((a, b) => a.order - b.order);
+
+    return topLevelBookmarks.map(b => this.buildBookmarkTree(b, group, undefined, 0));
   }
 
   updateBookmark(
     bookmarkId: string,
     updates: {
+      parentId?: string | null;   // null means move to top level
       location?: string;
       title?: string;
       description?: string;
@@ -244,13 +391,42 @@ export class BookmarkStoreManagerStandalone extends EventEmitter {
       category?: BookmarkCategory;
       tags?: string[];
     }
-  ): boolean {
+  ): boolean | 'circular_reference' | 'parent_not_found' {
     const result = this.getBookmark(bookmarkId);
     if (!result) {
       return false;
     }
 
     const { bookmark, group } = result;
+
+    // Handle parentId change
+    if (updates.parentId !== undefined) {
+      const newParentId = updates.parentId === null ? undefined : updates.parentId;
+
+      // Validate new parent
+      if (newParentId) {
+        // Check parent exists
+        const parentBookmark = group.bookmarks.find(b => b.id === newParentId);
+        if (!parentBookmark) {
+          return 'parent_not_found';
+        }
+
+        // Check for circular reference
+        if (this.wouldCreateCircularReference(group, bookmarkId, newParentId)) {
+          return 'circular_reference';
+        }
+      }
+
+      bookmark.parentId = newParentId;
+
+      // Recalculate order within new siblings
+      const siblings = group.bookmarks.filter(
+        b => b.parentId === newParentId && b.id !== bookmarkId
+      );
+      bookmark.order = siblings.length > 0
+        ? Math.max(...siblings.map(b => b.order)) + 1
+        : 1;
+    }
 
     if (updates.location !== undefined) {
       bookmark.location = normalizePath(updates.location, this.workspaceRoot);
@@ -263,7 +439,6 @@ export class BookmarkStoreManagerStandalone extends EventEmitter {
     }
     if (updates.order !== undefined) {
       bookmark.order = updates.order;
-      group.bookmarks.sort((a, b) => a.order - b.order);
     }
     if (updates.category !== undefined) {
       bookmark.category = updates.category;
@@ -280,11 +455,32 @@ export class BookmarkStoreManagerStandalone extends EventEmitter {
     return true;
   }
 
+  // Check if moving would create circular reference
+  private wouldCreateCircularReference(
+    group: BookmarkGroup,
+    bookmarkId: string,
+    newParentId: string
+  ): boolean {
+    // Self-reference
+    if (bookmarkId === newParentId) {
+      return true;
+    }
+
+    // Check if new parent is a descendant of this bookmark
+    const descendants = this.getDescendants(group, bookmarkId);
+    return descendants.some(d => d.id === newParentId);
+  }
+
   removeBookmark(bookmarkId: string): boolean {
     for (const group of this.store.groups) {
-      const index = group.bookmarks.findIndex(b => b.id === bookmarkId);
-      if (index !== -1) {
-        group.bookmarks.splice(index, 1);
+      const bookmark = group.bookmarks.find(b => b.id === bookmarkId);
+      if (bookmark) {
+        // Get all descendants (cascade delete)
+        const descendants = this.getDescendants(group, bookmarkId);
+        const idsToRemove = new Set([bookmarkId, ...descendants.map(d => d.id)]);
+
+        // Remove all bookmarks in the set
+        group.bookmarks = group.bookmarks.filter(b => !idsToRemove.has(b.id));
         group.updatedAt = nowISO();
 
         this.save();

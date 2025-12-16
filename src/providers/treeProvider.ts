@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { BookmarkStoreManager } from '../store/bookmarkStore';
-import { BookmarkGroup, Bookmark, BookmarkCategory } from '../store/types';
+import { BookmarkGroup, Bookmark, BookmarkCategory, BookmarkWithChildren } from '../store/types';
 import { parseLocation, getCategoryDisplayName } from '../utils';
 
 // Category icon and color mapping (matching prototype design)
@@ -106,13 +106,16 @@ export class BookmarkTreeProvider implements vscode.TreeDataProvider<BookmarkTre
     }
 
     if (element.type === 'group') {
-      // Group level: return bookmarks
-      const bookmarks = element.group.bookmarks.map(bookmark => ({
-        type: 'bookmark' as const,
-        bookmark,
-        group: element.group
-      }));
-      return Promise.resolve(bookmarks);
+      // Group level: return only top-level bookmarks (those without parentId)
+      const topLevelBookmarks = element.group.bookmarks
+        .filter(bookmark => !bookmark.parentId)
+        .sort((a, b) => a.order - b.order)
+        .map(bookmark => ({
+          type: 'bookmark' as const,
+          bookmark,
+          group: element.group
+        }));
+      return Promise.resolve(topLevelBookmarks);
     }
 
     if (element.type === 'file') {
@@ -125,7 +128,21 @@ export class BookmarkTreeProvider implements vscode.TreeDataProvider<BookmarkTre
       return Promise.resolve(bookmarks);
     }
 
-    // Bookmark level: no children
+    if (element.type === 'bookmark') {
+      // Bookmark level: return child bookmarks
+      const children = this.store.getChildBookmarks(element.bookmark.id);
+      if (children.length > 0) {
+        const childItems = children
+          .sort((a, b) => a.bookmark.order - b.bookmark.order)
+          .map(({ bookmark, group }) => ({
+            type: 'bookmark' as const,
+            bookmark,
+            group
+          }));
+        return Promise.resolve(childItems);
+      }
+    }
+
     return Promise.resolve([]);
   }
 
@@ -181,6 +198,14 @@ export class BookmarkTreeProvider implements vscode.TreeDataProvider<BookmarkTre
   getParent(element: BookmarkTreeData): BookmarkTreeData | undefined {
     if (element.type === 'bookmark') {
       if (this._viewMode === 'group') {
+        // Check if this bookmark has a parent bookmark
+        if (element.bookmark.parentId) {
+          const parentBookmark = element.group.bookmarks.find(b => b.id === element.bookmark.parentId);
+          if (parentBookmark) {
+            return { type: 'bookmark', bookmark: parentBookmark, group: element.group };
+          }
+        }
+        // Top-level bookmark - parent is the group
         return { type: 'group', group: element.group };
       }
       // In file view mode, we don't track parent (would need to find the file)
@@ -263,14 +288,19 @@ export class BookmarkTreeProvider implements vscode.TreeDataProvider<BookmarkTre
   }
 
   private createBookmarkTreeItem(bookmark: Bookmark, group: BookmarkGroup): vscode.TreeItem {
+    // Determine if this bookmark has children
+    const hasChildren = this.store.hasChildren(bookmark.id);
+
     // Format: "1. Title" with step number prominent
     const item = new vscode.TreeItem(
       `${bookmark.order}. ${bookmark.title}`,
-      vscode.TreeItemCollapsibleState.None
+      hasChildren
+        ? (bookmark.collapsed ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded)
+        : vscode.TreeItemCollapsibleState.None
     );
 
     item.id = bookmark.id;
-    item.contextValue = 'bookmark';
+    item.contextValue = hasChildren ? 'bookmarkWithChildren' : 'bookmark';
 
     // Description: show line number (matching prototype :45 or :78-92 format)
     try {
@@ -296,7 +326,14 @@ export class BookmarkTreeProvider implements vscode.TreeDataProvider<BookmarkTre
       tooltip.appendMarkdown(`**Tags:** ${bookmark.tags.map(t => `\`${t}\``).join(' ')}\n\n`);
     }
     tooltip.appendMarkdown(`**Group:** ${group.name}\n\n`);
-    tooltip.appendMarkdown(`**Step:** ${bookmark.order} of ${group.bookmarks.length}`);
+    if (bookmark.parentId) {
+      tooltip.appendMarkdown(`**Parent:** Has parent bookmark\n\n`);
+    }
+    if (hasChildren) {
+      const childCount = this.store.getChildBookmarks(bookmark.id).length;
+      tooltip.appendMarkdown(`**Children:** ${childCount} sub-bookmark(s)\n\n`);
+    }
+    tooltip.appendMarkdown(`**Order:** ${bookmark.order}`);
     item.tooltip = tooltip;
 
     // Icon with category color (matching prototype design)

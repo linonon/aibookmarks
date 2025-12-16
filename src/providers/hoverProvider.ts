@@ -53,8 +53,8 @@ export class BookmarkHoverProvider implements vscode.HoverProvider {
     md.isTrusted = true;
     md.supportHtml = true;
 
-    // Header
-    md.appendMarkdown(`## AI Bookmarks\n\n`);
+    // Simple header
+    md.appendMarkdown(`#### AI Bookmarks\n\n`);
 
     for (let i = 0; i < bookmarks.length; i++) {
       const { bookmark, group } = bookmarks[i];
@@ -63,30 +63,24 @@ export class BookmarkHoverProvider implements vscode.HoverProvider {
         md.appendMarkdown(`\n---\n\n`);
       }
 
-      // Group info
-      md.appendMarkdown(`**Group:** ${group.name}\n\n`);
+      // Title line: order + title
+      md.appendMarkdown(`**${bookmark.order}. ${bookmark.title}**\n\n`);
 
-      // Bookmark title with order
-      md.appendMarkdown(`### ${bookmark.order}. ${bookmark.title}\n\n`);
+      // Group as subtle info
+      md.appendMarkdown(`*Group: ${group.name}*\n\n`);
 
       // Description
-      md.appendMarkdown(bookmark.description);
-      md.appendMarkdown('\n\n');
+      if (bookmark.description) {
+        md.appendMarkdown(`${bookmark.description}\n\n`);
+      }
 
-      // Metadata
-      const metadata: string[] = [];
-
+      // Metadata on separate lines for clarity
       if (bookmark.category) {
-        metadata.push(`**Category:** ${getCategoryDisplayName(bookmark.category)}`);
+        md.appendMarkdown(`**Category:** ${getCategoryDisplayName(bookmark.category)}\n\n`);
       }
 
       if (bookmark.tags && bookmark.tags.length > 0) {
-        const tags = bookmark.tags.map(t => `\`${t}\``).join(' ');
-        metadata.push(`**Tags:** ${tags}`);
-      }
-
-      if (metadata.length > 0) {
-        md.appendMarkdown(metadata.join(' | '));
+        md.appendMarkdown(`**Tags:** ${bookmark.tags.map(t => `\`${t}\``).join(' ')}`);
       }
     }
 

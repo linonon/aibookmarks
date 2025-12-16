@@ -1,4 +1,7 @@
-.PHONY: install watch compile package clean lint dev
+.PHONY: install watch compile package clean lint dev mcp-add mcp-remove
+
+# Project root directory
+PROJECT_DIR := $(shell pwd)
 
 # Install dependencies
 install:
@@ -32,14 +35,24 @@ clean:
 # Full rebuild
 rebuild: clean install compile
 
+# Add MCP server to Claude Code
+mcp-add: compile
+	claude mcp add ai-bookmarks -- node $(PROJECT_DIR)/dist/mcp-server.js
+
+# Remove MCP server from Claude Code
+mcp-remove:
+	claude mcp remove ai-bookmarks
+
 # Show help
 help:
 	@echo "Available commands:"
-	@echo "  make install   - Install dependencies"
-	@echo "  make watch     - Start development mode with watch"
-	@echo "  make dev       - Install and start watch mode"
-	@echo "  make compile   - Compile TypeScript"
-	@echo "  make package   - Package extension as .vsix"
-	@echo "  make lint      - Run linter"
-	@echo "  make clean     - Clean build artifacts"
-	@echo "  make rebuild   - Full rebuild from scratch"
+	@echo "  make install    - Install dependencies"
+	@echo "  make watch      - Start development mode with watch"
+	@echo "  make dev        - Install and start watch mode"
+	@echo "  make compile    - Compile TypeScript"
+	@echo "  make package    - Package extension as .vsix"
+	@echo "  make lint       - Run linter"
+	@echo "  make clean      - Clean build artifacts"
+	@echo "  make rebuild    - Full rebuild from scratch"
+	@echo "  make mcp-add    - Add MCP server to Claude Code"
+	@echo "  make mcp-remove - Remove MCP server from Claude Code"

@@ -12,7 +12,8 @@ export type BookmarkCategory =
 // Single bookmark
 export interface Bookmark {
   id: string;                    // UUID
-  order: number;                 // 在分组内的顺序 (1, 2, 3...)
+  parentId?: string;             // 父书签ID, undefined表示顶层书签
+  order: number;                 // 同级排序 (1, 2, 3...)
   location: string;              // 位置，格式: path/to/file:line 或 path/to/file:start-end
 
   // AI 生成的内容
@@ -23,6 +24,14 @@ export interface Bookmark {
 
   // 漂移检测(可选)
   codeSnapshot?: string;         // 创建时的代码快照
+
+  // UI状态
+  collapsed?: boolean;           // 折叠状态
+}
+
+// 带子书签的书签(用于树形渲染)
+export interface BookmarkWithChildren extends Bookmark {
+  children: BookmarkWithChildren[];
 }
 
 // Bookmark group
@@ -61,6 +70,17 @@ export interface CreateGroupArgs {
 
 export interface AddBookmarkArgs {
   groupId: string;
+  parentId?: string;             // 父书签ID, 不填则为顶层书签
+  location: string;
+  title: string;
+  description: string;
+  order?: number;
+  category?: BookmarkCategory;
+  tags?: string[];
+}
+
+export interface AddChildBookmarkArgs {
+  parentBookmarkId: string;      // 父书签ID
   location: string;
   title: string;
   description: string;
@@ -75,9 +95,16 @@ export interface ListGroupsArgs {
 
 export interface ListBookmarksArgs {
   groupId?: string;
+  parentId?: string;             // 只列出指定父书签的子书签
+  includeDescendants?: boolean;  // 是否包含所有后代
   filePath?: string;
   category?: BookmarkCategory;
   tags?: string[];
+}
+
+export interface GetBookmarkTreeArgs {
+  bookmarkId: string;
+  maxDepth?: number;             // 最大深度, 默认无限
 }
 
 export interface UpdateGroupArgs {
@@ -88,6 +115,7 @@ export interface UpdateGroupArgs {
 
 export interface UpdateBookmarkArgs {
   bookmarkId: string;
+  parentId?: string | null;      // 父书签ID, null表示移到顶层
   location?: string;
   title?: string;
   description?: string;
@@ -114,6 +142,7 @@ export interface GetBookmarkArgs {
 
 export interface BatchAddBookmarksArgs {
   groupId: string;
+  parentId?: string;             // 父书签ID, 不填则为顶层书签
   bookmarks: Array<{
     location: string;
     title: string;

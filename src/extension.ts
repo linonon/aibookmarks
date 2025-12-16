@@ -4,12 +4,14 @@ import { BookmarkStoreManager } from './store/bookmarkStore';
 import { BookmarkTreeProvider } from './providers/treeProvider';
 import { DecorationProvider } from './providers/decorationProvider';
 import { BookmarkHoverProvider } from './providers/hoverProvider';
-import { Bookmark } from './store/types';
+import { BookmarkCodeLensProvider } from './providers/codeLensProvider';
+import { Bookmark, BookmarkGroup } from './store/types';
 import { parseLocation, toAbsolutePath } from './utils';
 
 let bookmarkStore: BookmarkStoreManager | undefined;
 let treeProvider: BookmarkTreeProvider | undefined;
 let decorationProvider: DecorationProvider | undefined;
+let codeLensProvider: BookmarkCodeLensProvider | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let treeView: vscode.TreeView<unknown> | undefined;
 
@@ -46,6 +48,12 @@ export function activate(context: vscode.ExtensionContext): void {
   // Register hover provider for all languages
   context.subscriptions.push(
     vscode.languages.registerHoverProvider({ scheme: 'file' }, hoverProvider)
+  );
+
+  // Initialize and register CodeLens provider
+  codeLensProvider = new BookmarkCodeLensProvider(bookmarkStore, workspaceRoot);
+  context.subscriptions.push(
+    vscode.languages.registerCodeLensProvider({ scheme: 'file' }, codeLensProvider)
   );
 
   // Create status bar item
@@ -171,6 +179,17 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
     })
   );
 
+  // Reveal bookmark in tree view (for CodeLens click)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('aiBookmarks.revealBookmark', (bookmark: Bookmark, group: BookmarkGroup) => {
+      if (!treeView || !treeProvider) {
+        return;
+      }
+      const treeItem = { type: 'bookmark' as const, bookmark, group };
+      treeView.reveal(treeItem, { select: true, focus: true, expand: true });
+    })
+  );
+
   // Jump to bookmark command
   context.subscriptions.push(
     vscode.commands.registerCommand('aiBookmarks.jumpTo', async (bookmark: Bookmark) => {
@@ -197,19 +216,6 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
         editor.selection = new vscode.Selection(range.start, range.start);
         editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-
-        // Highlight the range briefly
-        const decoration = vscode.window.createTextEditorDecorationType({
-          backgroundColor: new vscode.ThemeColor('editor.findMatchHighlightBackground'),
-          isWholeLine: true
-        });
-
-        editor.setDecorations(decoration, [range]);
-
-        // Remove highlight after 2 seconds
-        setTimeout(() => {
-          decoration.dispose();
-        }, 2000);
       } catch (error) {
         vscode.window.showErrorMessage(`Failed to jump to bookmark: ${error}`);
       }
@@ -875,6 +881,124 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
       }
     })
   );
+
+  // Copy bookmark info command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('aiBookmarks.copyBookmarkInfo', async (item: unknown) => {
+      const bookmarkItem = item as { type: string; bookmark?: Bookmark };
+      if (bookmarkItem?.type !== 'bookmark' || !bookmarkItem.bookmark) {
+        vscode.window.showErrorMessage('Please select a bookmark to copy');
+        return;
+      }
+
+      const infoText = `[Bookmark] ${bookmarkItem.bookmark.title}`;
+      await vscode.env.clipboard.writeText(infoText);
+      vscode.window.showInformationMessage('Bookmark info copied');
+    })
+  );
+
+  // Copy group info command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('aiBookmarks.copyGroupInfo', async (item: unknown) => {
+      const groupItem = item as { type: string; group?: BookmarkGroup };
+      if (groupItem?.type !== 'group' || !groupItem.group) {
+        vscode.window.showErrorMessage('Please select a group to copy');
+        return;
+      }
+
+      const infoText = `[Bookmark Group] ${groupItem.group.name}`;
+      await vscode.env.clipboard.writeText(infoText);
+      vscode.window.showInformationMessage('Group info copied');
+    })
+  );
+
+  // Add child bookmark command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('aiBookmarks.addChildBookmark', async (item: unknown) => {
+      if (!bookmarkStore) {
+        return;
+      }
+
+      // Extract parent bookmark from tree item
+      const bookmarkItem = item as { type: string; bookmark?: Bookmark; group?: { id: string; name: string } };
+      if (!bookmarkItem?.bookmark || !bookmarkItem?.group) {
+        vscode.window.showErrorMessage('Please select a bookmark to add a child to');
+        return;
+      }
+
+      const parentBookmark = bookmarkItem.bookmark;
+      const group = bookmarkItem.group;
+
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showErrorMessage('No active editor. Please open a file first.');
+        return;
+      }
+
+      // Get current selection or cursor position
+      const selection = editor.selection;
+      const startLine = selection.start.line + 1;
+      const endLine = selection.end.line + 1;
+
+      // Get file path relative to workspace
+      const relativePath = path.relative(workspaceRoot, editor.document.uri.fsPath);
+      const location = startLine === endLine
+        ? `${relativePath}:${startLine}`
+        : `${relativePath}:${startLine}-${endLine}`;
+
+      // Get bookmark title
+      const title = await vscode.window.showInputBox({
+        prompt: `Enter child bookmark title (parent: "${parentBookmark.title}")`,
+        placeHolder: 'e.g., Implementation detail'
+      });
+
+      if (!title) {
+        return;
+      }
+
+      // Get bookmark description
+      const description = await vscode.window.showInputBox({
+        prompt: 'Enter bookmark description',
+        placeHolder: 'Describe what this code does...'
+      });
+
+      if (!description) {
+        return;
+      }
+
+      // Get category
+      const categories = [
+        { label: 'entry-point', description: 'Entry point to a feature or module' },
+        { label: 'core-logic', description: 'Core business logic' },
+        { label: 'todo', description: 'Something to be done' },
+        { label: 'bug', description: 'Known bug or issue' },
+        { label: 'optimization', description: 'Can be optimized' },
+        { label: 'explanation', description: 'Just an explanation' },
+        { label: 'warning', description: 'Important warning' },
+        { label: 'reference', description: 'Reference material' }
+      ];
+
+      const selectedCategory = await vscode.window.showQuickPick(categories, {
+        placeHolder: 'Select a category (optional)'
+      });
+
+      // Capture code snapshot
+      const startIdx = Math.max(0, startLine - 1);
+      const endIdx = Math.min(editor.document.lineCount, endLine);
+      const codeSnapshot = editor.document.getText(
+        new vscode.Range(startIdx, 0, endIdx, 0)
+      ).trim();
+
+      // Add child bookmark with parentId
+      bookmarkStore.addBookmark(group.id, location, title, description, {
+        parentId: parentBookmark.id,
+        category: selectedCategory?.label as import('./store/types').BookmarkCategory | undefined,
+        codeSnapshot
+      });
+
+      vscode.window.showInformationMessage(`Child bookmark "${title}" added under "${parentBookmark.title}"`);
+    })
+  );
 }
 
 // Helper function to navigate between bookmarks
@@ -951,4 +1075,5 @@ export function deactivate(): void {
   bookmarkStore?.dispose();
   treeProvider?.dispose();
   decorationProvider?.dispose();
+  codeLensProvider?.dispose();
 }
