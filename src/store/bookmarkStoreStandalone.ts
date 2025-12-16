@@ -296,6 +296,21 @@ export class BookmarkStoreManagerStandalone extends EventEmitter {
     return false;
   }
 
+  // Clear all bookmarks and groups
+  clearAll(): { groupsRemoved: number; bookmarksRemoved: number } {
+    const groupsRemoved = this.store.groups.length;
+    const bookmarksRemoved = this.store.groups.reduce(
+      (total, group) => total + group.bookmarks.length,
+      0
+    );
+
+    this.store.groups = [];
+    this.save();
+    this.emit('change');
+
+    return { groupsRemoved, bookmarksRemoved };
+  }
+
   // Get bookmarks by file
   getBookmarksByFile(filePath: string): Array<{ bookmark: Bookmark; group: BookmarkGroup }> {
     const normalizedPath = normalizePath(filePath, this.workspaceRoot);

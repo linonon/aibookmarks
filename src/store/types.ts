@@ -104,6 +104,30 @@ export interface RemoveGroupArgs {
   groupId: string;
 }
 
+export interface GetGroupArgs {
+  groupId: string;
+}
+
+export interface GetBookmarkArgs {
+  bookmarkId: string;
+}
+
+export interface BatchAddBookmarksArgs {
+  groupId: string;
+  bookmarks: Array<{
+    location: string;
+    title: string;
+    description: string;
+    order?: number;
+    category?: BookmarkCategory;
+    tags?: string[];
+  }>;
+}
+
+export interface ClearAllBookmarksArgs {
+  confirm?: boolean;  // 确认清除, 防止误操作
+}
+
 // Default store factory
 export function createDefaultStore(projectName: string): BookmarkStore {
   return {

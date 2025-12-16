@@ -15,12 +15,20 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aiBookmarksContainer",
+          "title": "AI Bookmarks",
+          "icon": "icons/bookmark.svg"
+        }
+      ]
+    },
     "views": {
-      "explorer": [
+      "aiBookmarksContainer": [
         {
           "id": "aiBookmarks",
-          "name": "AI Bookmarks",
-          "icon": "icons/bookmark.svg"
+          "name": "Bookmarks"
         }
       ]
     },
@@ -60,6 +68,66 @@
         "command": "aiBookmarks.search",
         "title": "Search Bookmarks",
         "icon": "$(search)"
+      },
+      {
+        "command": "aiBookmarks.checkValidity",
+        "title": "Check Bookmark Validity",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "aiBookmarks.editBookmark",
+        "title": "Edit Bookmark",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "aiBookmarks.nextBookmark",
+        "title": "Go to Next Bookmark",
+        "icon": "$(arrow-down)"
+      },
+      {
+        "command": "aiBookmarks.prevBookmark",
+        "title": "Go to Previous Bookmark",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "aiBookmarks.toggleViewMode",
+        "title": "Toggle View Mode (Group/File)",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "aiBookmarks.moveBookmarkUp",
+        "title": "Move Bookmark Up",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "aiBookmarks.moveBookmarkDown",
+        "title": "Move Bookmark Down",
+        "icon": "$(arrow-down)"
+      },
+      {
+        "command": "aiBookmarks.expandAll",
+        "title": "Expand All",
+        "icon": "$(expand-all)"
+      },
+      {
+        "command": "aiBookmarks.collapseAll",
+        "title": "Collapse All",
+        "icon": "$(collapse-all)"
+      },
+      {
+        "command": "aiBookmarks.editGroup",
+        "title": "Edit Group",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "aiBookmarks.renameGroup",
+        "title": "Rename Group",
+        "icon": "$(rename)"
+      },
+      {
+        "command": "aiBookmarks.moveBookmark",
+        "title": "Move to Group...",
+        "icon": "$(move)"
       }
     ],
     "menus": {
@@ -80,14 +148,59 @@
           "group": "navigation"
         },
         {
+          "command": "aiBookmarks.toggleViewMode",
+          "when": "view == aiBookmarks",
+          "group": "navigation"
+        },
+        {
           "command": "aiBookmarks.exportMarkdown",
           "when": "view == aiBookmarks"
+        },
+        {
+          "command": "aiBookmarks.expandAll",
+          "when": "view == aiBookmarks",
+          "group": "navigation"
+        },
+        {
+          "command": "aiBookmarks.collapseAll",
+          "when": "view == aiBookmarks",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
         {
+          "command": "aiBookmarks.editBookmark",
+          "when": "view == aiBookmarks && viewItem == bookmark",
+          "group": "inline"
+        },
+        {
+          "command": "aiBookmarks.checkValidity",
+          "when": "view == aiBookmarks && viewItem == bookmark"
+        },
+        {
           "command": "aiBookmarks.delete",
           "when": "view == aiBookmarks && viewItem == bookmark"
+        },
+        {
+          "command": "aiBookmarks.moveBookmarkUp",
+          "when": "view == aiBookmarks && viewItem == bookmark"
+        },
+        {
+          "command": "aiBookmarks.moveBookmarkDown",
+          "when": "view == aiBookmarks && viewItem == bookmark"
+        },
+        {
+          "command": "aiBookmarks.moveBookmark",
+          "when": "view == aiBookmarks && viewItem == bookmark"
+        },
+        {
+          "command": "aiBookmarks.renameGroup",
+          "when": "view == aiBookmarks && viewItem == group",
+          "group": "inline"
+        },
+        {
+          "command": "aiBookmarks.editGroup",
+          "when": "view == aiBookmarks && viewItem == group"
         },
         {
           "command": "aiBookmarks.deleteGroup",
@@ -101,6 +214,42 @@
         }
       ]
     },
+    "keybindings": [
+      {
+        "command": "aiBookmarks.addManual",
+        "key": "ctrl+alt+b",
+        "mac": "cmd+alt+b",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "aiBookmarks.search",
+        "key": "ctrl+shift+b",
+        "mac": "cmd+shift+b"
+      },
+      {
+        "command": "aiBookmarks.nextBookmark",
+        "key": "ctrl+alt+down",
+        "mac": "cmd+alt+down",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "aiBookmarks.prevBookmark",
+        "key": "ctrl+alt+up",
+        "mac": "cmd+alt+up",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "aiBookmarks.renameGroup",
+        "key": "f2",
+        "when": "view == aiBookmarks && viewItem == group"
+      },
+      {
+        "command": "aiBookmarks.delete",
+        "key": "delete",
+        "mac": "cmd+backspace",
+        "when": "view == aiBookmarks && viewItem == bookmark"
+      }
+    ],
     "configuration": {
       "title": "AI Bookmarks",
       "properties": {
@@ -113,6 +262,29 @@
           "type": "boolean",
           "default": true,
           "description": "Show bookmark icons in editor gutter"
+        },
+        "aiBookmarks.viewMode": {
+          "type": "string",
+          "enum": ["group", "file"],
+          "default": "group",
+          "description": "View mode for bookmarks: 'group' (by bookmark group) or 'file' (by file path)"
+        },
+        "aiBookmarks.quickAddMode": {
+          "type": "string",
+          "enum": ["full", "simple"],
+          "default": "simple",
+          "description": "Quick add bookmark mode: 'full' (complete flow with all options) or 'simple' (only title required)"
+        },
+        "aiBookmarks.defaultCategory": {
+          "type": "string",
+          "enum": ["entry-point", "core-logic", "todo", "bug", "optimization", "explanation", "warning", "reference"],
+          "default": "explanation",
+          "description": "Default category for new bookmarks"
+        },
+        "aiBookmarks.confirmBeforeDelete": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show confirmation dialog before deleting bookmarks or groups"
         }
       }
     }

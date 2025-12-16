@@ -1,12 +1,33 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { BookmarkStoreManager } from '../store/bookmarkStore';
-import { BookmarkGroup, Bookmark } from '../store/types';
-import { parseLocation, getCategoryDisplayName, getCategoryIcon } from '../utils';
+import { BookmarkGroup, Bookmark, BookmarkCategory } from '../store/types';
+import { parseLocation, getCategoryDisplayName } from '../utils';
+
+// Category icon and color mapping (matching prototype design)
+const CATEGORY_STYLES: Record<string, { icon: string; color: string }> = {
+  'entry-point': { icon: 'debug-start', color: 'charts.green' },
+  'core-logic': { icon: 'symbol-method', color: 'charts.blue' },
+  'todo': { icon: 'checklist', color: 'charts.yellow' },
+  'bug': { icon: 'bug', color: 'errorForeground' },
+  'optimization': { icon: 'rocket', color: 'charts.orange' },
+  'explanation': { icon: 'comment-discussion', color: 'charts.purple' },
+  'warning': { icon: 'warning', color: 'editorWarning.foreground' },
+  'reference': { icon: 'link', color: 'descriptionForeground' }
+};
+
+function getCategoryThemeIcon(category?: BookmarkCategory): vscode.ThemeIcon {
+  const style = CATEGORY_STYLES[category || ''];
+  if (style) {
+    return new vscode.ThemeIcon(style.icon, new vscode.ThemeColor(style.color));
+  }
+  return new vscode.ThemeIcon('bookmark');
+}
+
+// View mode type
+export type ViewMode = 'group' | 'file';
 
 // Tree item types
-type TreeItemType = 'group' | 'bookmark';
-
 interface GroupTreeItem {
   type: 'group';
   group: BookmarkGroup;
@@ -18,20 +39,46 @@ interface BookmarkTreeItem {
   group: BookmarkGroup;
 }
 
-type BookmarkTreeData = GroupTreeItem | BookmarkTreeItem;
+interface FileTreeItem {
+  type: 'file';
+  filePath: string;
+  bookmarks: Array<{ bookmark: Bookmark; group: BookmarkGroup }>;
+}
+
+type BookmarkTreeData = GroupTreeItem | BookmarkTreeItem | FileTreeItem;
 
 export class BookmarkTreeProvider implements vscode.TreeDataProvider<BookmarkTreeData> {
   private _onDidChangeTreeData = new vscode.EventEmitter<BookmarkTreeData | undefined | null | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+  private _viewMode: ViewMode;
 
-  constructor(
-    private store: BookmarkStoreManager,
-    private extensionUri: vscode.Uri
-  ) {
+  constructor(private store: BookmarkStoreManager) {
+    // Initialize view mode from configuration
+    this._viewMode = vscode.workspace.getConfiguration('aiBookmarks').get<ViewMode>('viewMode') || 'group';
+
     // Listen for store changes
     store.onDidChange(() => {
       this.refresh();
     });
+
+    // Listen for configuration changes
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('aiBookmarks.viewMode')) {
+        this._viewMode = vscode.workspace.getConfiguration('aiBookmarks').get<ViewMode>('viewMode') || 'group';
+        this.refresh();
+      }
+    });
+  }
+
+  get viewMode(): ViewMode {
+    return this._viewMode;
+  }
+
+  toggleViewMode(): void {
+    this._viewMode = this._viewMode === 'group' ? 'file' : 'group';
+    // Update configuration
+    vscode.workspace.getConfiguration('aiBookmarks').update('viewMode', this._viewMode, vscode.ConfigurationTarget.Workspace);
+    this.refresh();
   }
 
   refresh(): void {
@@ -41,6 +88,8 @@ export class BookmarkTreeProvider implements vscode.TreeDataProvider<BookmarkTre
   getTreeItem(element: BookmarkTreeData): vscode.TreeItem {
     if (element.type === 'group') {
       return this.createGroupTreeItem(element.group);
+    } else if (element.type === 'file') {
+      return this.createFileTreeItem(element);
     } else {
       return this.createBookmarkTreeItem(element.bookmark, element.group);
     }
@@ -48,11 +97,12 @@ export class BookmarkTreeProvider implements vscode.TreeDataProvider<BookmarkTre
 
   getChildren(element?: BookmarkTreeData): Thenable<BookmarkTreeData[]> {
     if (!element) {
-      // Root level: return groups
-      const groups = this.store.listGroups();
-      return Promise.resolve(
-        groups.map(group => ({ type: 'group' as const, group }))
-      );
+      // Root level: depends on view mode
+      if (this._viewMode === 'group') {
+        return this.getGroupViewChildren();
+      } else {
+        return this.getFileViewChildren();
+      }
     }
 
     if (element.type === 'group') {
@@ -65,13 +115,76 @@ export class BookmarkTreeProvider implements vscode.TreeDataProvider<BookmarkTre
       return Promise.resolve(bookmarks);
     }
 
+    if (element.type === 'file') {
+      // File level: return bookmarks in this file
+      const bookmarks = element.bookmarks.map(({ bookmark, group }) => ({
+        type: 'bookmark' as const,
+        bookmark,
+        group
+      }));
+      return Promise.resolve(bookmarks);
+    }
+
     // Bookmark level: no children
     return Promise.resolve([]);
   }
 
+  private getGroupViewChildren(): Thenable<BookmarkTreeData[]> {
+    const groups = this.store.listGroups();
+    return Promise.resolve(
+      groups.map(group => ({ type: 'group' as const, group }))
+    );
+  }
+
+  private getFileViewChildren(): Thenable<BookmarkTreeData[]> {
+    // Group all bookmarks by file path
+    const allBookmarks = this.store.getAllBookmarks();
+    const fileMap = new Map<string, Array<{ bookmark: Bookmark; group: BookmarkGroup }>>();
+
+    for (const { bookmark, group } of allBookmarks) {
+      try {
+        const parsed = parseLocation(bookmark.location);
+        const filePath = parsed.filePath;
+        if (!fileMap.has(filePath)) {
+          fileMap.set(filePath, []);
+        }
+        fileMap.get(filePath)!.push({ bookmark, group });
+      } catch {
+        // Skip invalid locations
+      }
+    }
+
+    // Sort files alphabetically and bookmarks by line number
+    const fileItems: FileTreeItem[] = Array.from(fileMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([filePath, bookmarks]) => {
+        // Sort bookmarks by line number within each file
+        bookmarks.sort((a, b) => {
+          try {
+            const parsedA = parseLocation(a.bookmark.location);
+            const parsedB = parseLocation(b.bookmark.location);
+            return parsedA.startLine - parsedB.startLine;
+          } catch {
+            return 0;
+          }
+        });
+        return {
+          type: 'file' as const,
+          filePath,
+          bookmarks
+        };
+      });
+
+    return Promise.resolve(fileItems);
+  }
+
   getParent(element: BookmarkTreeData): BookmarkTreeData | undefined {
     if (element.type === 'bookmark') {
-      return { type: 'group', group: element.group };
+      if (this._viewMode === 'group') {
+        return { type: 'group', group: element.group };
+      }
+      // In file view mode, we don't track parent (would need to find the file)
+      return undefined;
     }
     return undefined;
   }
@@ -86,26 +199,71 @@ export class BookmarkTreeProvider implements vscode.TreeDataProvider<BookmarkTre
 
     item.id = group.id;
     item.contextValue = 'group';
-    item.description = `${group.bookmarks.length} bookmark(s)`;
 
-    if (group.description) {
-      item.tooltip = new vscode.MarkdownString();
-      item.tooltip.appendMarkdown(`**${group.name}**\n\n`);
-      item.tooltip.appendMarkdown(group.description);
-      if (group.query) {
-        item.tooltip.appendMarkdown(`\n\n---\n\n*Query: ${group.query}*`);
-      }
+    // Description: show count and optional query preview
+    if (group.query) {
+      item.description = `(${group.bookmarks.length}) Q: ${group.query.substring(0, 30)}${group.query.length > 30 ? '...' : ''}`;
+    } else {
+      item.description = `(${group.bookmarks.length})`;
     }
 
-    // Icon based on creator
+    // Rich tooltip with all group info
+    const tooltip = new vscode.MarkdownString();
+    tooltip.appendMarkdown(`### ${group.name}\n\n`);
+    if (group.description) {
+      tooltip.appendMarkdown(`${group.description}\n\n`);
+    }
+    if (group.query) {
+      tooltip.appendMarkdown(`---\n\n**Query:** *${group.query}*\n\n`);
+    }
+    tooltip.appendMarkdown(`**Bookmarks:** ${group.bookmarks.length}\n\n`);
+    tooltip.appendMarkdown(`**Created by:** ${group.createdBy === 'ai' ? '🤖 AI' : '👤 User'}\n\n`);
+    tooltip.appendMarkdown(`**Created:** ${new Date(group.createdAt).toLocaleString()}`);
+    item.tooltip = tooltip;
+
+    // Icon based on creator - AI gets sparkle, user gets folder
     item.iconPath = group.createdBy === 'ai'
-      ? new vscode.ThemeIcon('sparkle')
-      : new vscode.ThemeIcon('bookmark');
+      ? new vscode.ThemeIcon('sparkle', new vscode.ThemeColor('charts.blue'))
+      : new vscode.ThemeIcon('folder', new vscode.ThemeColor('charts.yellow'));
+
+    return item;
+  }
+
+  private createFileTreeItem(fileItem: FileTreeItem): vscode.TreeItem {
+    const fileName = path.basename(fileItem.filePath);
+    const dirPath = path.dirname(fileItem.filePath);
+
+    const item = new vscode.TreeItem(
+      fileName,
+      fileItem.bookmarks.length > 0
+        ? vscode.TreeItemCollapsibleState.Expanded
+        : vscode.TreeItemCollapsibleState.Collapsed
+    );
+
+    item.id = `file:${fileItem.filePath}`;
+    item.contextValue = 'file';
+    item.description = dirPath !== '.' ? dirPath : '';
+
+    // Tooltip with file info
+    const tooltip = new vscode.MarkdownString();
+    tooltip.appendMarkdown(`**${fileItem.filePath}**\n\n`);
+    tooltip.appendMarkdown(`${fileItem.bookmarks.length} bookmark(s)\n\n`);
+
+    // List groups that have bookmarks in this file
+    const groupNames = [...new Set(fileItem.bookmarks.map(b => b.group.name))];
+    if (groupNames.length > 0) {
+      tooltip.appendMarkdown(`**Groups:** ${groupNames.join(', ')}`);
+    }
+    item.tooltip = tooltip;
+
+    // File icon
+    item.iconPath = new vscode.ThemeIcon('file-code');
 
     return item;
   }
 
   private createBookmarkTreeItem(bookmark: Bookmark, group: BookmarkGroup): vscode.TreeItem {
+    // Format: "1. Title" with step number prominent
     const item = new vscode.TreeItem(
       `${bookmark.order}. ${bookmark.title}`,
       vscode.TreeItemCollapsibleState.None
@@ -114,35 +272,35 @@ export class BookmarkTreeProvider implements vscode.TreeDataProvider<BookmarkTre
     item.id = bookmark.id;
     item.contextValue = 'bookmark';
 
-    // Parse location for description
+    // Description: show line number (matching prototype :45 or :78-92 format)
     try {
       const parsed = parseLocation(bookmark.location);
-      const fileName = path.basename(parsed.filePath);
       const lineInfo = parsed.isRange
-        ? `L${parsed.startLine}-${parsed.endLine}`
-        : `L${parsed.startLine}`;
-      item.description = `${fileName}:${lineInfo}`;
+        ? `:${parsed.startLine}-${parsed.endLine}`
+        : `:${parsed.startLine}`;
+      item.description = lineInfo;
     } catch {
-      item.description = bookmark.location;
+      item.description = '';
     }
 
-    // Tooltip with full information
+    // Rich tooltip with full bookmark information
     const tooltip = new vscode.MarkdownString();
-    tooltip.appendMarkdown(`**${bookmark.title}**\n\n`);
-    tooltip.appendMarkdown(bookmark.description);
-    tooltip.appendMarkdown(`\n\n---\n\n`);
+    tooltip.appendMarkdown(`### ${bookmark.title}\n\n`);
+    tooltip.appendMarkdown(`${bookmark.description}\n\n`);
+    tooltip.appendMarkdown(`---\n\n`);
     tooltip.appendMarkdown(`**Location:** \`${bookmark.location}\`\n\n`);
     if (bookmark.category) {
       tooltip.appendMarkdown(`**Category:** ${getCategoryDisplayName(bookmark.category)}\n\n`);
     }
     if (bookmark.tags && bookmark.tags.length > 0) {
-      tooltip.appendMarkdown(`**Tags:** ${bookmark.tags.join(', ')}`);
+      tooltip.appendMarkdown(`**Tags:** ${bookmark.tags.map(t => `\`${t}\``).join(' ')}\n\n`);
     }
+    tooltip.appendMarkdown(`**Group:** ${group.name}\n\n`);
+    tooltip.appendMarkdown(`**Step:** ${bookmark.order} of ${group.bookmarks.length}`);
     item.tooltip = tooltip;
 
-    // Icon based on category
-    const iconName = getCategoryIcon(bookmark.category);
-    item.iconPath = this.getIconPath(iconName);
+    // Icon with category color (matching prototype design)
+    item.iconPath = getCategoryThemeIcon(bookmark.category);
 
     // Command to jump to location
     item.command = {
@@ -152,31 +310,6 @@ export class BookmarkTreeProvider implements vscode.TreeDataProvider<BookmarkTre
     };
 
     return item;
-  }
-
-  private getIconPath(iconName: string): vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri } {
-    // Use theme icons for all categories (more reliable than custom SVGs)
-    const themeIconMap: Record<string, string> = {
-      'bookmark': 'bookmark',
-      'entry-point': 'debug-start',
-      'core-logic': 'symbol-method',
-      'todo': 'checklist',
-      'bug': 'bug',
-      'optimization': 'rocket',
-      'explanation': 'info',
-      'warning': 'warning',
-      'reference': 'references'
-    };
-
-    const themeIcon = themeIconMap[iconName];
-    if (themeIcon) {
-      return new vscode.ThemeIcon(themeIcon);
-    }
-
-    // Fallback to custom icon if exists
-    const lightIcon = vscode.Uri.joinPath(this.extensionUri, 'icons', `${iconName}.svg`);
-    const darkIcon = vscode.Uri.joinPath(this.extensionUri, 'icons', `${iconName}.svg`);
-    return { light: lightIcon, dark: darkIcon };
   }
 
   dispose(): void {

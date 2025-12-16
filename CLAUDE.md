@@ -7,9 +7,10 @@
 ## 核心功能
 
 1. **AI 可調用的書籤工具** - 通過 MCP 協議暴露書籤操作
-2. **書籤側邊欄** - 在 VSCode 中顯示所有書籤，按文件分組
-3. **行內標記** - 在編輯器 gutter 區域顯示書籤圖標
-4. **懸浮預覽** - hover 時顯示書籤說明
+2. **手動書籤管理** - 用戶可直接在 VSCode 中創建、編輯、刪除書籤
+3. **書籤側邊欄** - 在 VSCode 中顯示所有書籤，按文件分組
+4. **行內標記** - 在編輯器 gutter 區域顯示書籤圖標
+5. **懸浮預覽** - hover 時顯示書籤說明
 
 ## 技術架構
 
@@ -225,6 +226,254 @@ interface BookmarkStore {
 | 名稱 | 類型 | 必填 | 說明 |
 |------|------|------|------|
 | groupId | string | ✓ | 分組 ID |
+
+### get_group
+
+獲取單個分組的詳細信息（包含所有書籤）。
+
+**參數：**
+| 名稱 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| groupId | string | ✓ | 分組 ID |
+
+**返回：** 分組詳情及其所有書籤
+
+### get_bookmark
+
+獲取單個書籤的詳細信息。
+
+**參數：**
+| 名稱 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| bookmarkId | string | ✓ | 書籤 ID |
+
+**返回：** 書籤詳情及其所屬分組信息
+
+### batch_add_bookmarks
+
+批量添加書籤到分組，比單個添加更高效。
+
+**參數：**
+| 名稱 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| groupId | string | ✓ | 分組 ID |
+| bookmarks | array | ✓ | 書籤數組，每個元素包含 location, title, description 等字段 |
+
+**bookmarks 數組元素：**
+| 名稱 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| location | string | ✓ | 位置 |
+| title | string | ✓ | 標題 |
+| description | string | ✓ | 說明 |
+| order | number | | 順序 |
+| category | string | | 分類 |
+| tags | string[] | | 標籤 |
+
+**返回：** 添加結果摘要及每個書籤的狀態
+
+### clear_all_bookmarks
+
+清除所有書籤和分組。這是破壞性操作，需要顯式確認。
+
+**參數：**
+| 名稱 | 類型 | 必填 | 說明 |
+|------|------|------|------|
+| confirm | boolean | ✓ | 必須設置為 true 才能執行，防止誤操作 |
+
+**返回：** 清除結果，包含刪除的分組數和書籤數
+
+## 手動配置功能 (Manual Configuration)
+
+除了 AI 通過 MCP 創建書籤外，用戶也可以完全手動管理書籤，不依賴 AI。
+
+### 功能需求
+
+#### 1. 分組管理
+
+| 操作 | 觸發方式 | 說明 |
+|------|----------|------|
+| 創建分組 | 側邊欄工具欄按鈕 / 命令面板 | 彈出輸入框，輸入名稱和說明 |
+| 編輯分組 | 右鍵菜單 / 雙擊分組名 | 修改分組名稱和說明 |
+| 刪除分組 | 右鍵菜單 | 確認後刪除分組及其所有書籤 |
+| 重命名分組 | 右鍵菜單 / F2 | 快速重命名 |
+
+#### 2. 書籤管理
+
+| 操作 | 觸發方式 | 說明 |
+|------|----------|------|
+| 添加書籤 | 編輯器右鍵 / 快捷鍵 `Ctrl+Alt+B` | 在當前光標位置創建書籤 |
+| 編輯書籤 | 側邊欄右鍵 / 雙擊 | 修改標題、說明、分類、標籤 |
+| 刪除書籤 | 側邊欄右鍵 / Delete 鍵 | 刪除單個書籤 |
+| 移動書籤 | 拖拽 / 右鍵菜單 | 移動到其他分組 |
+| 調整順序 | 拖拽 / 上下箭頭 | 調整書籤在分組內的順序 |
+
+#### 3. 快速添加書籤流程
+
+用戶在編輯器中右鍵選擇 "Add Bookmark Here" 或按快捷鍵後：
+
+```
+1. 彈出 QuickPick: 選擇目標分組（或創建新分組）
+2. 彈出 InputBox: 輸入書籤標題
+3. 彈出 InputBox: 輸入書籤說明（可選，支持多行）
+4. 彈出 QuickPick: 選擇分類（可選）
+5. 完成創建
+```
+
+簡化模式（設置項控制）：
+```
+1. 彈出 QuickPick: 選擇目標分組
+2. 彈出 InputBox: 輸入標題
+3. 完成（說明和分類使用默認值）
+```
+
+#### 4. 編輯書籤對話框
+
+雙擊書籤或選擇 "Edit" 時，打開編輯界面：
+
+**方案 A: 多步 InputBox（簡單實現）**
+```
+Step 1: 編輯標題
+Step 2: 編輯說明
+Step 3: 選擇分類
+Step 4: 編輯標籤（逗號分隔）
+```
+
+**方案 B: Webview 表單（更好體驗，後期實現）**
+- 單個對話框顯示所有字段
+- 支持 Markdown 預覽
+- 標籤自動補全
+
+#### 5. 批量操作
+
+| 操作 | 說明 |
+|------|------|
+| 批量刪除 | 多選書籤後刪除 |
+| 批量移動 | 多選書籤移動到指定分組 |
+| 批量設置分類 | 多選書籤統一設置分類 |
+
+### VSCode 命令
+
+```typescript
+// 分組操作
+"aiBookmarks.createGroup"       // 創建分組
+"aiBookmarks.editGroup"         // 編輯分組
+"aiBookmarks.deleteGroup"       // 刪除分組
+"aiBookmarks.renameGroup"       // 重命名分組
+
+// 書籤操作
+"aiBookmarks.addBookmarkHere"   // 在當前位置添加書籤（已有 addManual）
+"aiBookmarks.editBookmark"      // 編輯書籤
+"aiBookmarks.deleteBookmark"    // 刪除書籤（已有 delete）
+"aiBookmarks.moveBookmark"      // 移動書籤到其他分組
+"aiBookmarks.duplicateBookmark" // 複製書籤
+
+// 批量操作
+"aiBookmarks.deleteSelected"    // 刪除選中項
+"aiBookmarks.moveSelected"      // 移動選中項
+```
+
+### 快捷鍵配置
+
+```json
+{
+  "key": "ctrl+alt+b",
+  "command": "aiBookmarks.addBookmarkHere",
+  "when": "editorTextFocus"
+},
+{
+  "key": "ctrl+shift+b",
+  "command": "aiBookmarks.searchBookmarks"
+},
+{
+  "key": "delete",
+  "command": "aiBookmarks.deleteBookmark",
+  "when": "view == aiBookmarks && viewItem == bookmark"
+},
+{
+  "key": "f2",
+  "command": "aiBookmarks.renameGroup",
+  "when": "view == aiBookmarks && viewItem == group"
+}
+```
+
+### 設置項
+
+```json
+{
+  "aiBookmarks.quickAddMode": {
+    "type": "string",
+    "enum": ["full", "simple"],
+    "default": "simple",
+    "description": "快速添加書籤模式: full=完整流程, simple=只需標題"
+  },
+  "aiBookmarks.defaultCategory": {
+    "type": "string",
+    "enum": ["entry-point", "core-logic", "todo", "bug", "optimization", "explanation", "warning", "reference"],
+    "default": "explanation",
+    "description": "新書籤的默認分類"
+  },
+  "aiBookmarks.confirmBeforeDelete": {
+    "type": "boolean",
+    "default": true,
+    "description": "刪除前是否需要確認"
+  }
+}
+```
+
+### 右鍵菜單結構
+
+**編輯器右鍵菜單:**
+```
+─────────────────────
+📌 Add Bookmark Here
+─────────────────────
+```
+
+**側邊欄分組右鍵菜單:**
+```
+─────────────────────
+✏️  Rename Group
+📝 Edit Group
+➕ Add Bookmark to Group
+─────────────────────
+🗑️  Delete Group
+─────────────────────
+```
+
+**側邊欄書籤右鍵菜單:**
+```
+─────────────────────
+📍 Go to Location
+✏️  Edit Bookmark
+📋 Copy Location
+─────────────────────
+⬆️  Move Up
+⬇️  Move Down
+📁 Move to Group...
+─────────────────────
+🗑️  Delete Bookmark
+─────────────────────
+```
+
+### 實現優先級
+
+**Phase 1 - 基礎手動操作（MVP）:**
+- [x] 添加書籤（addManual 已實現基礎版）
+- [x] 創建分組（createGroup 命令）
+- [x] 刪除書籤/分組（delete/deleteGroup 命令）
+- [x] 編輯書籤標題和說明（editBookmark 命令）
+
+**Phase 2 - 完善編輯功能:**
+- [x] 編輯書籤分類和標籤（editBookmark 命令）
+- [x] 編輯分組名稱和說明（editGroup/renameGroup 命令）
+- [x] 調整書籤順序（moveBookmarkUp/Down 命令）
+- [x] 移動書籤到其他分組（moveBookmark 命令）
+
+**Phase 3 - 高級功能:**
+- [ ] 拖拽排序
+- [ ] 拖拽移動到其他分組
+- [ ] 批量操作
+- [ ] Webview 編輯表單
 
 ## VSCode 擴展配置 (package.json)
 
@@ -494,11 +743,20 @@ add_bookmark({
 
 ## 後續擴展計劃
 
+### 近期 (手動配置功能)
+- [ ] **Phase 1**: 基礎手動操作 - 創建分組、刪除書籤/分組、編輯書籤
+- [ ] **Phase 2**: 完善編輯 - 編輯分類標籤、調整順序
+- [ ] **Phase 3**: 高級功能 - 拖拽操作、批量操作
+
+### 中期
 - [ ] 書籤搜索功能
 - [ ] 書籤間關聯關係
 - [ ] 導出為項目文檔
+
+### 遠期
 - [ ] 團隊書籤同步（通過 git）
 - [ ] 書籤有效性檢測（代碼大幅改動時提醒）
+- [ ] Webview 編輯表單
 
 ## Makefile
 

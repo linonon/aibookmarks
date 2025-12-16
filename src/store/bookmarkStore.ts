@@ -153,6 +153,21 @@ export class BookmarkStoreManager {
     return true;
   }
 
+  // 清除所有书签和分组
+  clearAll(): { groupsRemoved: number; bookmarksRemoved: number } {
+    const groupsRemoved = this.store.groups.length;
+    const bookmarksRemoved = this.store.groups.reduce(
+      (total, group) => total + group.bookmarks.length,
+      0
+    );
+
+    this.store.groups = [];
+    this.save();
+    this._onDidChange.fire();
+
+    return { groupsRemoved, bookmarksRemoved };
+  }
+
   // Bookmark operations
 
   addBookmark(
@@ -442,6 +457,96 @@ export class BookmarkStoreManager {
 
     result.bookmark.codeSnapshot = codeSnapshot;
     result.group.updatedAt = nowISO();
+
+    this.save();
+    this._onDidChange.fire();
+
+    return true;
+  }
+
+  // Reorder bookmark within its group (move up or down)
+  reorderBookmark(bookmarkId: string, direction: 'up' | 'down'): boolean {
+    const result = this.getBookmark(bookmarkId);
+    if (!result) {
+      return false;
+    }
+
+    const { bookmark, group } = result;
+    const currentIndex = group.bookmarks.findIndex(b => b.id === bookmarkId);
+
+    if (currentIndex === -1) {
+      return false;
+    }
+
+    // Calculate new index
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+    // Check bounds
+    if (newIndex < 0 || newIndex >= group.bookmarks.length) {
+      return false;
+    }
+
+    // Swap orders
+    const otherBookmark = group.bookmarks[newIndex];
+    const tempOrder = bookmark.order;
+    bookmark.order = otherBookmark.order;
+    otherBookmark.order = tempOrder;
+
+    // Re-sort bookmarks by order
+    group.bookmarks.sort((a, b) => a.order - b.order);
+    group.updatedAt = nowISO();
+
+    this.save();
+    this._onDidChange.fire();
+
+    return true;
+  }
+
+  // Move bookmark to another group
+  moveBookmarkToGroup(bookmarkId: string, targetGroupId: string): boolean {
+    // Find the bookmark and its current group
+    let sourceGroup: BookmarkGroup | undefined;
+    let bookmarkIndex = -1;
+    let bookmark: Bookmark | undefined;
+
+    for (const group of this.store.groups) {
+      const index = group.bookmarks.findIndex(b => b.id === bookmarkId);
+      if (index !== -1) {
+        sourceGroup = group;
+        bookmarkIndex = index;
+        bookmark = group.bookmarks[index];
+        break;
+      }
+    }
+
+    if (!sourceGroup || !bookmark || bookmarkIndex === -1) {
+      return false;
+    }
+
+    // Find target group
+    const targetGroup = this.store.groups.find(g => g.id === targetGroupId);
+    if (!targetGroup) {
+      return false;
+    }
+
+    // Don't move to same group
+    if (sourceGroup.id === targetGroup.id) {
+      return false;
+    }
+
+    // Remove from source group
+    sourceGroup.bookmarks.splice(bookmarkIndex, 1);
+    sourceGroup.updatedAt = nowISO();
+
+    // Calculate new order for target group
+    const newOrder = targetGroup.bookmarks.length > 0
+      ? Math.max(...targetGroup.bookmarks.map(b => b.order)) + 1
+      : 1;
+    bookmark.order = newOrder;
+
+    // Add to target group
+    targetGroup.bookmarks.push(bookmark);
+    targetGroup.updatedAt = nowISO();
 
     this.save();
     this._onDidChange.fire();
