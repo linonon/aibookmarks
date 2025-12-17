@@ -298,13 +298,33 @@ export class BookmarkTreeProvider implements vscode.TreeDataProvider<BookmarkTre
     item.id = bookmark.id;
     item.contextValue = hasChildren ? 'bookmarkWithChildren' : 'bookmark';
 
-    // Description: show line number (matching prototype :45 or :78-92 format)
+    // Description: show line number + optional inline description
     try {
       const parsed = parseLocation(bookmark.location);
       const lineInfo = parsed.isRange
         ? `:${parsed.startLine}-${parsed.endLine}`
         : `:${parsed.startLine}`;
-      item.description = lineInfo;
+      
+      // Check if inline description is enabled
+      const config = vscode.workspace.getConfiguration('aiBookmarks');
+      const showInlineDesc = config.get<boolean>('showInlineDescription', true);
+      const maxLength = config.get<number>('inlineDescriptionLength', 50);
+      
+      if (showInlineDesc && bookmark.description) {
+        // Get first line of description
+        const firstLine = bookmark.description.split('\n')[0].trim();
+        if (firstLine) {
+          // Truncate if needed
+          const truncated = firstLine.length > maxLength
+            ? firstLine.substring(0, maxLength) + '...'
+            : firstLine;
+          item.description = `${lineInfo} | ${truncated}`;
+        } else {
+          item.description = lineInfo;
+        }
+      } else {
+        item.description = lineInfo;
+      }
     } catch {
       item.description = '';
     }
