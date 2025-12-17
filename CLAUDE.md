@@ -55,6 +55,18 @@
 3. `src/mcp/handlers.ts` + `handlersStandalone.ts` - 添加處理函數
 4. `src/mcp/server.ts` + `serverStandalone.ts` - 添加工具定義和 switch case
 
+### 重要: Serena MCP 行號偏移問題
+
+使用 Serena MCP 獲取代碼符號位置時, **必須進行行號轉換**:
+
+```
+書籤行號 = Serena 返回的行號 + 1
+```
+
+**原因**: Serena 使用 LSP 標準的 0-indexed 行號, 而書籤系統使用 1-indexed 行號 (人類可讀)。
+
+**示例**: 如果 `find_symbol` 返回 `line: 505`, 實際文件位置是第 506 行, 書籤應設置為 `file.ts:506`。
+
 ### 層級書籤 (Hierarchical Bookmarks)
 
 書籤支持父子層級關係, 通過 `parentId` 字段實現:

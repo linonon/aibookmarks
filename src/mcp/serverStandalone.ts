@@ -81,6 +81,7 @@ Then all subsequent bookmark operations will save to /Users/name/projects/myapp/
 - NEVER use file:1 - the first line is almost always an import statement, not meaningful code
 - If you haven't read the file, READ IT FIRST with the Read tool, then come back to add the bookmark
 - Guessing line numbers makes bookmarks useless - they will point to wrong code
+- **LSP/Serena returns 0-indexed line numbers!** If using Serena MCP, add 1: bookmark_line = serena_line + 1
 
 **CRITICAL - Location Guidelines (CALL SITE vs DEFINITION):**
 - For call chain/flow analysis: Mark the CALL SITE (where function is called), NOT the function definition
