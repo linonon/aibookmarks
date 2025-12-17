@@ -187,46 +187,122 @@ body {
   padding: var(--sidebar-padding) 0;
 }
 
-/* Group Header - 改进设计 */
+/* Group Header - 极简现代设计 */
 .group-item {
-  margin-bottom: 8px;
-  padding: 2px 4px;
-  border-bottom: 1px solid var(--vscode-panel-border);
-  padding-bottom: 8px;
+  margin-bottom: 16px;
+  padding: 0;
+  position: relative;
+
+  /* 给整个 Group 添加外框 */
+  margin: 0 6px 16px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.3);  /* 默认就亮 */
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.15);  /* 默认就有发光 */
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.02),
+    rgba(139, 92, 246, 0.01)
+  );
+  overflow: hidden;  /* 确保子元素不超出圆角 */
 }
 
 .group-item:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
+  margin-bottom: 8px;
 }
 
+/* Group 外框容器 - 微妙的边框和阴影 */
 .group-header {
   display: flex;
   align-items: center;
-  padding: 8px 8px;
+  padding: 10px 12px 10px 8px;
+  margin: 0;  /* 去掉外边距，因为外框在 .group-item 上 */
   cursor: pointer;
   user-select: none;
-  border-left: 0;
-  border-radius: var(--border-radius);
+  border-radius: 8px 8px 0 0;  /* 只保留顶部圆角 */
   transition: all var(--transition-speed) ease;
+  position: relative;
+
+  /* 微妙的背景渐变 - 类似书签但更柔和 */
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.04),
+    rgba(139, 92, 246, 0.03)
+  );
+
+  /* 底部边框，分隔 header 和书签 */
+  border-bottom: 1px solid rgba(59, 130, 246, 0.1);
 }
 
-.group-header:hover {
-  background-color: var(--vscode-list-hoverBackground);
+/* hover 效果 - 整个 group-item 外框发光更亮 */
+.group-item:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
 }
 
-.group-header.active {
-  background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), transparent);
-  border-left: 3px solid #3b82f6;
-  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+.group-item:hover .group-header {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.08),
+    rgba(139, 92, 246, 0.05)
+  );
+  border-bottom-color: rgba(59, 130, 246, 0.2);
 }
 
+/* 激活状态 - 更明显的外框高亮 */
+.group-item.active {
+  border-color: rgba(59, 130, 246, 0.7);
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.4);
+}
+
+.group-item.active .group-header {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.15),
+    rgba(139, 92, 246, 0.1)
+  );
+  border-bottom-color: rgba(59, 130, 246, 0.3);
+}
+
+/* AI 创建的 Group - 蓝紫渐变色 */
 .group-header.ai-created .group-icon {
   color: #3b82f6;
 }
 
+/* 用户创建的 Group - 橙黄渐变色 */
 .group-header.user-created .group-icon {
   color: #f59e0b;
+}
+
+.group-header.user-created {
+  background: linear-gradient(135deg,
+    rgba(245, 158, 11, 0.04),
+    rgba(251, 146, 60, 0.03)
+  );
+  border-bottom-color: rgba(245, 158, 11, 0.1);
+}
+
+.group-header.user-created:hover {
+  background: linear-gradient(135deg,
+    rgba(245, 158, 11, 0.08),
+    rgba(251, 146, 60, 0.05)
+  );
+  border-bottom-color: rgba(245, 158, 11, 0.2);
+}
+
+/* 用户创建的 Group 整体外框 */
+.group-item.user-created {
+  border-color: rgba(245, 158, 11, 0.3);  /* 默认就亮 */
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.15);  /* 默认就有发光 */
+  background: linear-gradient(135deg,
+    rgba(245, 158, 11, 0.02),
+    rgba(251, 146, 60, 0.01)
+  );
+}
+
+.group-item.user-created:hover {
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+}
+
+.group-item.user-created.active {
+  border-color: rgba(245, 158, 11, 0.7);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.4);
 }
 
 .group-chevron {
@@ -252,127 +328,354 @@ body {
 
 .group-name {
   flex: 1;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;        /* 从 13px 增大到 14px */
+  font-weight: 700;       /* 从 600 加粗到 700 */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  letter-spacing: 0.2px;  /* 增加字间距，更醒目 */
 }
 
+/* 数字徽章 - 更醒目的设计 */
 .group-count {
-  font-size: 10px;
+  font-size: 11px;        /* 从 10px 增大 */
+  font-weight: 700;       /* 从 600 加粗 */
   color: #ffffff;
-  background-color: var(--vscode-badge-background);
-  padding: 2px 6px;
-  border-radius: 10px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);  /* 渐变背景 */
+  padding: 3px 8px;       /* 增加内边距 */
+  border-radius: 12px;    /* 更圆润 */
   margin-left: 8px;
   flex-shrink: 0;
-  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);  /* 添加阴影 */
+  line-height: 1;
 }
 
+.group-header.user-created .group-count {
+  background: linear-gradient(135deg, #f59e0b, #fb923c);  /* 用户创建用橙色 */
+  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+}
+
+/* 问题说明 - 内联显示在 header 右侧 */
 .group-query {
+  flex: 1;                /* 占据剩余空间 */
   font-size: 10px;
   color: var(--vscode-descriptionForeground);
-  padding: 2px 12px 4px 28px;
+  padding: 3px 8px;       /* 紧凑的内边距 */
+  margin: 0 8px;          /* 左右间距 */
+  border-radius: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   font-style: italic;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  opacity: 0.7;
+  min-width: 0;           /* 允许缩小 */
+
+  /* 微妙的背景色 */
+  background-color: rgba(59, 130, 246, 0.06);
+
+  /* 微妙的边框 */
+  border: 1px solid rgba(59, 130, 246, 0.15);
 }
 
-.group-query .codicon {
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-/* Bookmarks List */
+/* Bookmarks List - 书签容器样式 */
 .bookmarks-list {
-  padding-left: 8px;
+  padding: 8px 0;  /* 上下内边距，让书签与边框有间距 */
 }
 
 .bookmarks-list.collapsed {
   display: none;
 }
 
-/* Bookmark Item - 改进设计 */
+/* Bookmark Container - 包裹式容器 (嵌套设计) */
+.bookmark-container {
+  position: relative;
+  margin: 4px 6px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+
+  /* 默认边框和阴影 */
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 4px rgba(59, 130, 246, 0.1);
+  background: transparent;
+  overflow: hidden;
+}
+
+.bookmark-container:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
+}
+
+.bookmark-container.active {
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+}
+
+/* Bookmark Item - 简化为头部区域 */
 .bookmark-item {
   position: relative;
-  padding: 8px 12px 8px 0;
-  padding-left: calc(var(--indent-size) + 12px);
+  padding: 8px 12px;
   cursor: pointer;
-  transition: all var(--transition-speed) ease;
-  border-left: 2px solid transparent;
-  margin: 2px 4px;
-  border-radius: var(--border-radius);
+  transition: all 0.2s ease;
+  border-radius: 6px 6px 0 0;  /* 只保留顶部圆角 */
+
+  /* 移除边框和阴影 - 由容器承担 */
+  border: none;
+  box-shadow: none;
 }
 
+/* ::before 色块已移除 - 改用容器包裹 */
+
+/* 基础 hover 效果 - 边框发光更亮 */
 .bookmark-item:hover {
   background-color: var(--vscode-list-hoverBackground);
-  border-left-color: rgba(59, 130, 246, 0.3);
 }
 
+/* 选中/激活状态 - 通用高亮效果 (层级特定颜色由各 depth 规则定义) */
 .bookmark-item.selected,
 .bookmark-item.active {
-  background-color: var(--vscode-list-hoverBackground);
-  border-left-color: #3b82f6;
+  opacity: 1 !important;
 }
 
-/* Flow Line - 简化连接线 */
-.bookmark-item .flow-line {
-  position: absolute;
-  left: calc(var(--order-circle-size) / 2 + 12px);
-  top: calc(var(--order-circle-size) + 8px);
-  bottom: 0;
-  width: var(--flow-line-width);
-  background: var(--vscode-panel-border);
-  opacity: 0.3;
+/* 极简层级设计 - Notion/Linear 风格 */
+/* 只用左边框色块 + 缩进 + 微妙背景色表示层级，不使用连接线 */
+
+/* 隐藏旧的视觉元素 */
+.order-circle,
+.flow-line {
+  display: none;
 }
 
-.bookmark-item:last-child .flow-line,
-.bookmark-item.last-sibling .flow-line {
-  bottom: 50%;
+/* 层级样式 - 嵌套容器设计 (俄罗斯套娃风格) */
+/* depth=0: 蓝色容器 */
+.bookmark-container[data-depth="0"] {
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 4px rgba(59, 130, 246, 0.15);
 }
 
-/* Order Number Circle - 更醒目的设计 */
-.order-circle {
-  position: absolute;
-  left: 12px;
-  top: 8px;
-  width: var(--order-circle-size);
-  height: var(--order-circle-size);
-  border-radius: 4px;
-  background-color: var(--category-color, var(--color-note));
-  color: white;
-  font-size: 11px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-  transition: all var(--transition-speed) ease;
+.bookmark-container[data-depth="0"] > .bookmark-item {
+  background-color: rgba(59, 130, 246, 0.05);
 }
 
-.bookmark-item:hover .order-circle {
-  transform: scale(1.1);
+.bookmark-container[data-depth="0"]:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
 }
 
-.bookmark-item.active .order-circle {
-  background-color: #3b82f6;
-  transform: scale(1.15);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+.bookmark-container[data-depth="0"]:hover > .bookmark-item {
+  background-color: rgba(59, 130, 246, 0.1);
 }
 
-/* Hierarchical Order Number (e.g., 1.1, 1.2) */
-.order-circle.sub-order {
-  width: auto;
-  min-width: var(--order-circle-size);
-  padding: 0 6px;
-  border-radius: 3px;
-  font-size: 10px;
+.bookmark-container[data-depth="0"].active {
+  border-color: rgba(59, 130, 246, 0.7);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+}
+
+.bookmark-container[data-depth="0"].active > .bookmark-item {
+  background-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+/* depth=1: 紫色容器 */
+.bookmark-container[data-depth="1"] {
+  border-color: rgba(139, 92, 246, 0.3);
+  box-shadow: 0 0 4px rgba(139, 92, 246, 0.15);
+}
+
+.bookmark-container[data-depth="1"] > .bookmark-item {
+  background-color: rgba(139, 92, 246, 0.08);
+  padding-left: 20px;
+}
+
+.bookmark-container[data-depth="1"]:hover {
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
+}
+
+.bookmark-container[data-depth="1"]:hover > .bookmark-item {
+  background-color: rgba(139, 92, 246, 0.15);
+}
+
+.bookmark-container[data-depth="1"].active {
+  border-color: rgba(139, 92, 246, 0.7);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
+}
+
+.bookmark-container[data-depth="1"].active > .bookmark-item {
+  background-color: rgba(139, 92, 246, 0.3) !important;
+}
+
+/* depth=2: 青色容器 */
+.bookmark-container[data-depth="2"] {
+  border-color: rgba(6, 182, 212, 0.3);
+  box-shadow: 0 0 4px rgba(6, 182, 212, 0.15);
+}
+
+.bookmark-container[data-depth="2"] > .bookmark-item {
+  background-color: rgba(6, 182, 212, 0.12);
+  padding-left: 40px;
+}
+
+.bookmark-container[data-depth="2"]:hover {
+  border-color: rgba(6, 182, 212, 0.5);
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
+}
+
+.bookmark-container[data-depth="2"]:hover > .bookmark-item {
+  background-color: rgba(6, 182, 212, 0.2);
+}
+
+.bookmark-container[data-depth="2"].active {
+  border-color: rgba(6, 182, 212, 0.7);
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
+}
+
+.bookmark-container[data-depth="2"].active > .bookmark-item {
+  background-color: rgba(6, 182, 212, 0.35) !important;
+}
+
+/* depth=3: 绿色容器 */
+.bookmark-container[data-depth="3"] {
+  border-color: rgba(34, 197, 94, 0.3);
+  box-shadow: 0 0 4px rgba(34, 197, 94, 0.15);
+}
+
+.bookmark-container[data-depth="3"] > .bookmark-item {
+  background-color: rgba(34, 197, 94, 0.16);
+  padding-left: 60px;
+}
+
+.bookmark-container[data-depth="3"]:hover {
+  border-color: rgba(34, 197, 94, 0.5);
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.3);
+}
+
+.bookmark-container[data-depth="3"]:hover > .bookmark-item {
+  background-color: rgba(34, 197, 94, 0.25);
+}
+
+.bookmark-container[data-depth="3"].active {
+  border-color: rgba(34, 197, 94, 0.7);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.4);
+}
+
+.bookmark-container[data-depth="3"].active > .bookmark-item {
+  background-color: rgba(34, 197, 94, 0.4) !important;
+}
+
+/* depth=4: 黄色容器 */
+.bookmark-container[data-depth="4"] {
+  border-color: rgba(234, 179, 8, 0.3);
+  box-shadow: 0 0 4px rgba(234, 179, 8, 0.15);
+}
+
+.bookmark-container[data-depth="4"] > .bookmark-item {
+  background-color: rgba(234, 179, 8, 0.08);
+  padding-left: 80px;
+}
+
+.bookmark-container[data-depth="4"]:hover {
+  border-color: rgba(234, 179, 8, 0.5);
+  box-shadow: 0 0 8px rgba(234, 179, 8, 0.3);
+}
+
+.bookmark-container[data-depth="4"]:hover > .bookmark-item {
+  background-color: rgba(234, 179, 8, 0.15);
+}
+
+.bookmark-container[data-depth="4"].active {
+  border-color: rgba(234, 179, 8, 0.7);
+  box-shadow: 0 0 12px rgba(234, 179, 8, 0.4);
+}
+
+.bookmark-container[data-depth="4"].active > .bookmark-item {
+  background-color: rgba(234, 179, 8, 0.35) !important;
+}
+
+/* depth=5: 橙色容器 */
+.bookmark-container[data-depth="5"] {
+  border-color: rgba(251, 146, 60, 0.3);
+  box-shadow: 0 0 4px rgba(251, 146, 60, 0.15);
+}
+
+.bookmark-container[data-depth="5"] > .bookmark-item {
+  background-color: rgba(251, 146, 60, 0.08);
+  padding-left: 100px;
+}
+
+.bookmark-container[data-depth="5"]:hover {
+  border-color: rgba(251, 146, 60, 0.5);
+  box-shadow: 0 0 8px rgba(251, 146, 60, 0.3);
+}
+
+.bookmark-container[data-depth="5"]:hover > .bookmark-item {
+  background-color: rgba(251, 146, 60, 0.15);
+}
+
+.bookmark-container[data-depth="5"].active {
+  border-color: rgba(251, 146, 60, 0.7);
+  box-shadow: 0 0 12px rgba(251, 146, 60, 0.4);
+}
+
+.bookmark-container[data-depth="5"].active > .bookmark-item {
+  background-color: rgba(251, 146, 60, 0.35) !important;
+}
+
+/* depth=6: 红色容器 */
+.bookmark-container[data-depth="6"] {
+  border-color: rgba(239, 68, 68, 0.3);
+  box-shadow: 0 0 4px rgba(239, 68, 68, 0.15);
+}
+
+.bookmark-container[data-depth="6"] > .bookmark-item {
+  background-color: rgba(239, 68, 68, 0.08);
+  padding-left: 120px;
+}
+
+.bookmark-container[data-depth="6"]:hover {
+  border-color: rgba(239, 68, 68, 0.5);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+}
+
+.bookmark-container[data-depth="6"]:hover > .bookmark-item {
+  background-color: rgba(239, 68, 68, 0.15);
+}
+
+.bookmark-container[data-depth="6"].active {
+  border-color: rgba(239, 68, 68, 0.7);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
+.bookmark-container[data-depth="6"].active > .bookmark-item {
+  background-color: rgba(239, 68, 68, 0.35) !important;
+}
+
+/* depth=7: 粉色容器 */
+.bookmark-container[data-depth="7"] {
+  border-color: rgba(236, 72, 153, 0.3);
+  box-shadow: 0 0 4px rgba(236, 72, 153, 0.15);
+}
+
+.bookmark-container[data-depth="7"] > .bookmark-item {
+  background-color: rgba(236, 72, 153, 0.08);
+  padding-left: 140px;
+}
+
+.bookmark-container[data-depth="7"]:hover {
+  border-color: rgba(236, 72, 153, 0.5);
+  box-shadow: 0 0 8px rgba(236, 72, 153, 0.3);
+}
+
+.bookmark-container[data-depth="7"]:hover > .bookmark-item {
+  background-color: rgba(236, 72, 153, 0.15);
+}
+
+.bookmark-container[data-depth="7"].active {
+  border-color: rgba(236, 72, 153, 0.7);
+  box-shadow: 0 0 12px rgba(236, 72, 153, 0.4);
+}
+
+.bookmark-container[data-depth="7"].active > .bookmark-item {
+  background-color: rgba(236, 72, 153, 0.35) !important;
 }
 
 /* Bookmark Content - 改进布局 */
@@ -437,30 +740,7 @@ body {
   --category-color: var(--color-note);
 }
 
-/* Hierarchical Indentation */
-.bookmark-item[data-depth="1"] {
-  padding-left: calc(var(--indent-size) + 8px + 16px);
-}
-
-.bookmark-item[data-depth="1"] .flow-line {
-  left: calc(var(--indent-size) / 2 + 8px + 16px - var(--flow-line-width) / 2);
-}
-
-.bookmark-item[data-depth="1"] .order-circle {
-  left: calc(8px + 16px);
-}
-
-.bookmark-item[data-depth="2"] {
-  padding-left: calc(var(--indent-size) + 8px + 32px);
-}
-
-.bookmark-item[data-depth="2"] .flow-line {
-  left: calc(var(--indent-size) / 2 + 8px + 32px - var(--flow-line-width) / 2);
-}
-
-.bookmark-item[data-depth="2"] .order-circle {
-  left: calc(8px + 32px);
-}
+/* 旧的层级缩进已移至上方的极简层级设计中 */
 
 /* Expandable Bookmark (has children) */
 .bookmark-item.has-children .bookmark-chevron {
@@ -485,9 +765,9 @@ body {
   transform: rotate(-90deg);
 }
 
-/* Children List */
+/* Children List - 嵌套容器内的子书签列表 */
 .children-list {
-  /* Children are rendered as nested bookmark-items */
+  padding: 4px 8px 8px 8px;  /* 上右下左 - 为嵌套的 .bookmark-container 提供间距 */
 }
 
 .children-list.collapsed {

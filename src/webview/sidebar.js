@@ -137,7 +137,7 @@
     const bookmarksHtml = renderBookmarkTree(group.bookmarks || [], group.id, null, 0);
 
     return `
-      <div class="group-item" data-group-id="${escapeHtml(group.id)}">
+      <div class="group-item ${creatorClass}" data-group-id="${escapeHtml(group.id)}">
         <div class="group-header ${creatorClass} ${isCollapsed ? 'collapsed' : ''}"
              data-group-id="${escapeHtml(group.id)}">
           <span class="group-chevron">
@@ -147,9 +147,9 @@
             <span class="codicon ${group.createdBy === 'ai' ? 'codicon-sparkle' : 'codicon-bookmark'}"></span>
           </span>
           <span class="group-name">${escapeHtml(group.name)}</span>
+          ${group.query ? `<span class="group-query" title="${escapeHtml(group.query)}">Q: ${escapeHtml(group.query)}</span>` : ''}
           <span class="group-count">${bookmarkCount}</span>
         </div>
-        ${group.query ? `<div class="group-query">Q: ${escapeHtml(group.query)}</div>` : ''}
         <div class="bookmarks-list ${isCollapsed ? 'collapsed' : ''}" data-group-id="${escapeHtml(group.id)}">
           ${bookmarksHtml}
         </div>
@@ -181,8 +181,7 @@
     // 按 order 排序
     currentLevelBookmarks.sort((a, b) => (a.order || 0) - (b.order || 0));
 
-    return currentLevelBookmarks.map((bookmark, index) => {
-      const isLast = index === currentLevelBookmarks.length - 1;
+    return currentLevelBookmarks.map((bookmark) => {
       const hasChildren = bookmarks.some(b => b.parentId === bookmark.id);
       const isCollapsed = collapsedBookmarks.has(bookmark.id);
 
@@ -191,49 +190,39 @@
         ? renderBookmarkTree(bookmarks, groupId, bookmark.id, depth + 1)
         : '';
 
-      return renderBookmark(bookmark, groupId, depth, isLast, hasChildren, isCollapsed, childrenHtml);
+      return renderBookmark(bookmark, groupId, depth, hasChildren, isCollapsed, childrenHtml);
     }).join('');
   }
 
-  // 渲染单个书签
-  function renderBookmark(bookmark, groupId, depth, isLast, hasChildren, isCollapsed, childrenHtml) {
+  // 渲染单个书签 - 嵌套包裹结构
+  function renderBookmark(bookmark, groupId, depth, hasChildren, isCollapsed, childrenHtml) {
     const category = bookmark.category || 'note';
-    const orderDisplay = getOrderDisplay(bookmark.order, depth);
 
     return `
-      <div class="bookmark-item ${hasChildren ? 'has-children' : ''} ${isCollapsed ? 'collapsed' : ''} ${isLast ? 'last-sibling' : ''}"
+      <div class="bookmark-container ${hasChildren ? 'has-children' : ''} ${isCollapsed ? 'collapsed' : ''}"
            data-bookmark-id="${escapeHtml(bookmark.id)}"
            data-group-id="${escapeHtml(groupId)}"
-           data-category="${escapeHtml(category)}"
            data-depth="${depth}">
-        <div class="flow-line"></div>
-        <div class="order-circle ${depth > 0 ? 'sub-order' : ''}">${orderDisplay}</div>
+        <div class="bookmark-item"
+             data-category="${escapeHtml(category)}">
+          ${hasChildren ? `
+            <span class="bookmark-chevron">
+              <span class="codicon codicon-chevron-down"></span>
+            </span>
+          ` : ''}
+          <div class="bookmark-content">
+            <div class="bookmark-title">${escapeHtml(bookmark.title)}</div>
+            <div class="bookmark-location">${escapeHtml(formatLocation(bookmark.location))}</div>
+            ${bookmark.description ? `<div class="bookmark-description">${escapeHtml(truncate(bookmark.description, 60))}</div>` : ''}
+          </div>
+        </div>
         ${hasChildren ? `
-          <span class="bookmark-chevron">
-            <span class="codicon codicon-chevron-down"></span>
-          </span>
+          <div class="children-list ${isCollapsed ? 'collapsed' : ''}" data-parent-id="${escapeHtml(bookmark.id)}">
+            ${childrenHtml}
+          </div>
         ` : ''}
-        <div class="bookmark-content">
-          <div class="bookmark-title">${escapeHtml(bookmark.title)}</div>
-          <div class="bookmark-location">${escapeHtml(formatLocation(bookmark.location))}</div>
-          ${bookmark.description ? `<div class="bookmark-description">${escapeHtml(truncate(bookmark.description, 60))}</div>` : ''}
-        </div>
       </div>
-      ${hasChildren ? `
-        <div class="children-list ${isCollapsed ? 'collapsed' : ''}" data-parent-id="${escapeHtml(bookmark.id)}">
-          ${childrenHtml}
-        </div>
-      ` : ''}
     `;
-  }
-
-  // 获取序号显示
-  function getOrderDisplay(order, depth) {
-    if (depth === 0) {
-      return order || '?';
-    }
-    // 子书签显示为 1.1, 1.2 等 (简化版, 实际可能需要更复杂逻辑)
-    return order || '?';
   }
 
   // 格式化位置显示
@@ -269,8 +258,13 @@
       item.addEventListener('click', (e) => {
         e.stopPropagation();
         hideContextMenu(); // 关闭可能打开的右键菜单
-        const bookmarkId = item.getAttribute('data-bookmark-id');
-        const hasChildren = item.classList.contains('has-children');
+
+        // data-* 属性在父元素 .bookmark-container 上
+        const container = item.closest('.bookmark-container');
+        if (!container) return;
+
+        const bookmarkId = container.getAttribute('data-bookmark-id');
+        const hasChildren = container.classList.contains('has-children');
 
         // 检查是否点击了展开箭头
         if (e.target.closest('.bookmark-chevron')) {
@@ -285,8 +279,13 @@
       item.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const bookmarkId = item.getAttribute('data-bookmark-id');
-        const groupId = item.getAttribute('data-group-id');
+
+        // data-* 属性在父元素 .bookmark-container 上
+        const container = item.closest('.bookmark-container');
+        if (!container) return;
+
+        const bookmarkId = container.getAttribute('data-bookmark-id');
+        const groupId = container.getAttribute('data-group-id');
         showBookmarkContextMenu(e, bookmarkId, groupId);
       });
     });
@@ -312,18 +311,19 @@
 
   // 切换书签展开/折叠
   function toggleBookmark(bookmarkId) {
-    const item = document.querySelector(`.bookmark-item[data-bookmark-id="${bookmarkId}"]`);
+    // data-bookmark-id 和 collapsed 类在 .bookmark-container 上
+    const container = document.querySelector(`.bookmark-container[data-bookmark-id="${bookmarkId}"]`);
     const childrenList = document.querySelector(`.children-list[data-parent-id="${bookmarkId}"]`);
 
-    if (!childrenList) return;
+    if (!container || !childrenList) return;
 
     if (collapsedBookmarks.has(bookmarkId)) {
       collapsedBookmarks.delete(bookmarkId);
-      item.classList.remove('collapsed');
+      container.classList.remove('collapsed');
       childrenList.classList.remove('collapsed');
     } else {
       collapsedBookmarks.add(bookmarkId);
-      item.classList.add('collapsed');
+      container.classList.add('collapsed');
       childrenList.classList.add('collapsed');
     }
 
@@ -352,11 +352,6 @@
   function showBookmarkContextMenu(e, bookmarkId, groupId) {
     contextMenuTarget = { type: 'bookmark', id: bookmarkId, groupId };
     contextMenu.innerHTML = `
-      <div class="context-menu-item" data-action="jumpToBookmark">
-        <span class="codicon codicon-go-to-file"></span>
-        <span>Go to Location</span>
-      </div>
-      <div class="context-menu-separator"></div>
       <div class="context-menu-item" data-action="editBookmark">
         <span class="codicon codicon-edit"></span>
         <span>Edit Bookmark</span>
@@ -445,9 +440,6 @@
     if (!contextMenuTarget) return;
 
     switch (action) {
-      case 'jumpToBookmark':
-        vscode.postMessage({ type: 'jumpToBookmark', bookmarkId: contextMenuTarget.id });
-        break;
       case 'editBookmark':
         vscode.postMessage({ type: 'editBookmark', bookmarkId: contextMenuTarget.id });
         break;
@@ -635,31 +627,38 @@
     }
 
     // 4. 如果是子书签, 展开所有父书签
-    let currentElement = bookmarkElement;
-    while (currentElement) {
-      const parentBookmarkId = currentElement.getAttribute('data-parent-id');
+    let currentContainer = bookmarkElement;
+    while (currentContainer) {
+      // 找到当前容器的父元素 .children-list (如果有的话)
+      const parentChildrenList = currentContainer.closest('.children-list');
+      if (!parentChildrenList) {
+        break;
+      }
+
+      // 从 .children-list 获取 data-parent-id
+      const parentBookmarkId = parentChildrenList.getAttribute('data-parent-id');
       if (!parentBookmarkId) {
         break;
       }
 
       // 展开父书签
       collapsedBookmarks.delete(parentBookmarkId);
-      const parentElement = document.querySelector(`[data-bookmark-id="${parentBookmarkId}"]`);
-      if (parentElement) {
-        parentElement.classList.remove('collapsed');
-        const childrenList = parentElement.querySelector('.children-list');
+      const parentContainer = document.querySelector(`.bookmark-container[data-bookmark-id="${parentBookmarkId}"]`);
+      if (parentContainer) {
+        parentContainer.classList.remove('collapsed');
+        const childrenList = parentContainer.querySelector('.children-list');
         if (childrenList) {
           childrenList.classList.remove('collapsed');
         }
-        currentElement = parentElement;
+        currentContainer = parentContainer;
       } else {
         break;
       }
     }
 
     // 5. 移除所有其他 active 高亮
-    document.querySelectorAll('.bookmark-item.active').forEach(item => {
-      item.classList.remove('active');
+    document.querySelectorAll('.bookmark-container.active').forEach(container => {
+      container.classList.remove('active');
     });
 
     // 6. 高亮当前书签
