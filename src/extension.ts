@@ -2,18 +2,21 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { BookmarkStoreManager } from './store/bookmarkStore';
 import { BookmarkTreeProvider } from './providers/treeProvider';
+import { BookmarkSidebarProvider } from './providers/sidebarProvider';
 import { DecorationProvider } from './providers/decorationProvider';
 import { BookmarkHoverProvider } from './providers/hoverProvider';
 import { BookmarkCodeLensProvider } from './providers/codeLensProvider';
+import { BookmarkDetailProvider } from './providers/webviewProvider';
 import { Bookmark, BookmarkGroup } from './store/types';
 import { parseLocation, toAbsolutePath } from './utils';
 
 let bookmarkStore: BookmarkStoreManager | undefined;
 let treeProvider: BookmarkTreeProvider | undefined;
+let sidebarProvider: BookmarkSidebarProvider | undefined;
 let decorationProvider: DecorationProvider | undefined;
 let codeLensProvider: BookmarkCodeLensProvider | undefined;
+let detailProvider: BookmarkDetailProvider | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
-let treeView: vscode.TreeView<unknown> | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
   console.log('AI Bookmarks extension is activating...');
@@ -30,14 +33,14 @@ export function activate(context: vscode.ExtensionContext): void {
   // Initialize bookmark store
   bookmarkStore = new BookmarkStoreManager(workspaceRoot);
 
-  // Initialize tree provider
+  // Initialize tree provider (kept for internal use)
   treeProvider = new BookmarkTreeProvider(bookmarkStore);
 
-  // Register tree view
-  treeView = vscode.window.createTreeView('aiBookmarks', {
-    treeDataProvider: treeProvider,
-    showCollapseAll: true
-  });
+  // Initialize and register sidebar webview provider
+  sidebarProvider = new BookmarkSidebarProvider(context.extensionUri, bookmarkStore, workspaceRoot);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider('aiBookmarks', sidebarProvider)
+  );
 
   // Initialize decoration provider
   decorationProvider = new DecorationProvider(bookmarkStore, workspaceRoot);
@@ -55,6 +58,9 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.languages.registerCodeLensProvider({ scheme: 'file' }, codeLensProvider)
   );
+
+  // Initialize bookmark detail provider
+  detailProvider = new BookmarkDetailProvider(context.extensionUri, bookmarkStore, workspaceRoot);
 
   // Create status bar item
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -108,12 +114,12 @@ export function activate(context: vscode.ExtensionContext): void {
   registerCommands(context, workspaceRoot);
 
   // Add to subscriptions
-  context.subscriptions.push(treeView);
   context.subscriptions.push(statusBarItem);
   context.subscriptions.push({
     dispose: () => {
       bookmarkStore?.dispose();
       treeProvider?.dispose();
+      sidebarProvider?.dispose();
       decorationProvider?.dispose();
     }
   });
@@ -175,18 +181,17 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
   // Refresh command
   context.subscriptions.push(
     vscode.commands.registerCommand('aiBookmarks.refresh', () => {
-      treeProvider?.refresh();
+      sidebarProvider?.refresh();
     })
   );
 
-  // Reveal bookmark in tree view (for CodeLens click)
+  // Reveal bookmark in sidebar (for CodeLens click)
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.revealBookmark', (bookmark: Bookmark, group: BookmarkGroup) => {
-      if (!treeView || !treeProvider) {
-        return;
-      }
-      const treeItem = { type: 'bookmark' as const, bookmark, group };
-      treeView.reveal(treeItem, { select: true, focus: true, expand: true });
+    vscode.commands.registerCommand('aiBookmarks.revealBookmark', (bookmark: Bookmark, _group: BookmarkGroup) => {
+      // Refresh sidebar to ensure the bookmark is visible
+      sidebarProvider?.refresh();
+      // Open detail panel for the bookmark
+      detailProvider?.showBookmarkDetail(bookmark.id);
     })
   );
 
@@ -622,9 +627,9 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
   // Toggle view mode command
   context.subscriptions.push(
     vscode.commands.registerCommand('aiBookmarks.toggleViewMode', () => {
-      if (treeProvider) {
-        treeProvider.toggleViewMode();
-        const mode = treeProvider.viewMode === 'group' ? 'Group' : 'File';
+      if (sidebarProvider) {
+        sidebarProvider.toggleViewMode();
+        const mode = sidebarProvider.viewMode === 'group' ? 'Group' : 'File';
         vscode.window.showInformationMessage(`View mode: ${mode}`);
       }
     })
@@ -672,42 +677,18 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Expand all command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.expandAll', async () => {
-      if (!treeProvider || !treeView) {
-        return;
-      }
-
-      // 获取所有根节点并展开
-      const rootItems = await treeProvider.getChildren();
-      if (rootItems && rootItems.length > 0) {
-        for (const item of rootItems) {
-          try {
-            await treeView.reveal(item, { expand: 3, select: false, focus: false });
-          } catch {
-            // 忽略展开失败的节点
-          }
-        }
+    vscode.commands.registerCommand('aiBookmarks.expandAll', () => {
+      if (sidebarProvider) {
+        sidebarProvider.expandAll();
       }
     })
   );
 
   // Collapse all command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.collapseAll', async () => {
-      if (!treeProvider || !treeView) {
-        return;
-      }
-
-      // 获取所有根节点并折叠
-      const rootItems = await treeProvider.getChildren();
-      if (rootItems && rootItems.length > 0) {
-        for (const item of rootItems) {
-          try {
-            await treeView.reveal(item, { expand: false, select: false, focus: false });
-          } catch {
-            // 忽略折叠失败的节点
-          }
-        }
+    vscode.commands.registerCommand('aiBookmarks.collapseAll', () => {
+      if (sidebarProvider) {
+        sidebarProvider.collapseAll();
       }
     })
   );
@@ -975,6 +956,16 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
       vscode.window.showInformationMessage(`Child bookmark "${title}" added under "${parentBookmark.title}"`);
     })
   );
+
+  // Open bookmark detail command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('aiBookmarks.openBookmarkDetail', (item: unknown) => {
+      const bookmarkItem = item as { type: string; bookmark?: Bookmark };
+      if (bookmarkItem?.type === 'bookmark' && bookmarkItem.bookmark) {
+        detailProvider?.showBookmarkDetail(bookmarkItem.bookmark.id);
+      }
+    })
+  );
 }
 
 // Helper function to navigate between bookmarks
@@ -1052,4 +1043,5 @@ export function deactivate(): void {
   treeProvider?.dispose();
   decorationProvider?.dispose();
   codeLensProvider?.dispose();
+  detailProvider?.dispose();
 }

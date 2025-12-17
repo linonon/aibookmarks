@@ -1,0 +1,511 @@
+/* VSCode Theme Variables */
+:root {
+  /* Category Colors */
+  --color-entry-point: #4bb543;
+  --color-core-logic: #569cd6;
+  --color-issue: #f14c4c;
+  --color-note: #9c9c9c;
+
+  /* Layout */
+  --sidebar-padding: 8px;
+  --item-spacing: 4px;
+  --border-radius: 4px;
+  --transition-speed: 0.15s;
+
+  /* Flow line */
+  --flow-line-width: 2px;
+  --order-circle-size: 22px;
+  --indent-size: 32px;
+}
+
+/* Base Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-sideBar-background);
+  line-height: 1.4;
+  overflow-x: hidden;
+}
+
+.sidebar-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Search Bar */
+.search-container {
+  padding: var(--sidebar-padding);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  flex-shrink: 0;
+}
+
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 8px;
+  color: var(--vscode-input-placeholderForeground);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 6px 28px 6px 28px;
+  border: 1px solid var(--vscode-input-border);
+  border-radius: var(--border-radius);
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font-size: 12px;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+.search-input::placeholder {
+  color: var(--vscode-input-placeholderForeground);
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 4px;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: var(--vscode-input-placeholderForeground);
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.clear-search-btn:hover {
+  background-color: var(--vscode-toolbar-hoverBackground);
+  color: var(--vscode-foreground);
+}
+
+/* Bookmarks Container */
+.bookmarks-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Empty States */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  color: var(--vscode-descriptionForeground);
+  text-align: center;
+  gap: 8px;
+}
+
+.empty-state .codicon {
+  font-size: 32px;
+  opacity: 0.5;
+}
+
+.empty-hint {
+  font-size: 11px;
+  margin-top: 4px;
+  opacity: 0.7;
+}
+
+/* Groups List */
+.groups-list {
+  padding: var(--sidebar-padding) 0;
+}
+
+/* Group Header */
+.group-item {
+  margin-bottom: 4px;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  padding: 6px var(--sidebar-padding);
+  cursor: pointer;
+  user-select: none;
+  border-left: 3px solid transparent;
+  transition: background-color var(--transition-speed);
+}
+
+.group-header:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.group-header.ai-created {
+  border-left-color: var(--vscode-charts-blue);
+}
+
+.group-header.user-created {
+  border-left-color: var(--vscode-charts-yellow);
+}
+
+.group-chevron {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  transition: transform var(--transition-speed);
+}
+
+.group-header.collapsed .group-chevron {
+  transform: rotate(-90deg);
+}
+
+.group-icon {
+  margin-right: 6px;
+  font-size: 14px;
+}
+
+.group-header.ai-created .group-icon {
+  color: var(--vscode-charts-blue);
+}
+
+.group-header.user-created .group-icon {
+  color: var(--vscode-charts-yellow);
+}
+
+.group-name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.group-count {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin-left: 6px;
+}
+
+.group-query {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  padding: 2px var(--sidebar-padding) 2px 38px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+}
+
+/* Bookmarks List */
+.bookmarks-list {
+  padding-left: 8px;
+}
+
+.bookmarks-list.collapsed {
+  display: none;
+}
+
+/* Bookmark Item */
+.bookmark-item {
+  position: relative;
+  padding: 6px var(--sidebar-padding) 6px 0;
+  padding-left: calc(var(--indent-size) + 8px);
+  cursor: pointer;
+  transition: background-color var(--transition-speed);
+}
+
+.bookmark-item:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.bookmark-item.selected {
+  background-color: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+}
+
+/* Flow Line - connects sequential bookmarks */
+.bookmark-item .flow-line {
+  position: absolute;
+  left: calc(var(--indent-size) / 2 + 8px - var(--flow-line-width) / 2);
+  top: calc(var(--order-circle-size) + 6px);
+  bottom: calc(-1 * var(--item-spacing));
+  width: var(--flow-line-width);
+  background: var(--category-color, var(--color-note));
+  opacity: 0.5;
+}
+
+.bookmark-item:last-child .flow-line,
+.bookmark-item.last-sibling .flow-line {
+  display: none;
+}
+
+/* Order Number Circle */
+.order-circle {
+  position: absolute;
+  left: 8px;
+  top: 6px;
+  width: var(--order-circle-size);
+  height: var(--order-circle-size);
+  border-radius: 50%;
+  background-color: var(--category-color, var(--color-note));
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hierarchical Order Number (e.g., 1.1, 1.2) */
+.order-circle.sub-order {
+  width: auto;
+  min-width: var(--order-circle-size);
+  padding: 0 4px;
+  border-radius: 10px;
+  font-size: 10px;
+}
+
+/* Bookmark Content */
+.bookmark-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bookmark-title {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bookmark-location {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bookmark-description {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+/* Category Colors */
+.bookmark-item[data-category="entry-point"] {
+  --category-color: var(--color-entry-point);
+}
+
+.bookmark-item[data-category="core-logic"] {
+  --category-color: var(--color-core-logic);
+}
+
+.bookmark-item[data-category="issue"] {
+  --category-color: var(--color-issue);
+}
+
+.bookmark-item[data-category="note"] {
+  --category-color: var(--color-note);
+}
+
+/* Hierarchical Indentation */
+.bookmark-item[data-depth="1"] {
+  padding-left: calc(var(--indent-size) + 8px + 16px);
+}
+
+.bookmark-item[data-depth="1"] .flow-line {
+  left: calc(var(--indent-size) / 2 + 8px + 16px - var(--flow-line-width) / 2);
+}
+
+.bookmark-item[data-depth="1"] .order-circle {
+  left: calc(8px + 16px);
+}
+
+.bookmark-item[data-depth="2"] {
+  padding-left: calc(var(--indent-size) + 8px + 32px);
+}
+
+.bookmark-item[data-depth="2"] .flow-line {
+  left: calc(var(--indent-size) / 2 + 8px + 32px - var(--flow-line-width) / 2);
+}
+
+.bookmark-item[data-depth="2"] .order-circle {
+  left: calc(8px + 32px);
+}
+
+/* Expandable Bookmark (has children) */
+.bookmark-item.has-children .bookmark-chevron {
+  display: flex;
+}
+
+.bookmark-chevron {
+  display: none;
+  position: absolute;
+  left: calc(8px + var(--order-circle-size) + 4px);
+  top: 10px;
+  width: 14px;
+  height: 14px;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  transition: transform var(--transition-speed);
+}
+
+.bookmark-item.collapsed .bookmark-chevron {
+  transform: rotate(-90deg);
+}
+
+/* Children List */
+.children-list {
+  /* Children are rendered as nested bookmark-items */
+}
+
+.children-list.collapsed {
+  display: none;
+}
+
+/* Search Results */
+.search-results {
+  padding: var(--sidebar-padding);
+}
+
+.search-result-item {
+  padding: 8px;
+  margin-bottom: 4px;
+  border-radius: var(--border-radius);
+  background-color: var(--vscode-editor-background);
+  border-left: 3px solid var(--category-color, var(--color-note));
+  cursor: pointer;
+  transition: background-color var(--transition-speed);
+}
+
+.search-result-item:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.search-result-title {
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.search-result-group {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.search-result-location {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family);
+}
+
+/* Context Menu */
+.context-menu {
+  position: fixed;
+  min-width: 160px;
+  background-color: var(--vscode-menu-background);
+  border: 1px solid var(--vscode-menu-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  padding: 4px 0;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--vscode-menu-foreground);
+  cursor: pointer;
+}
+
+.context-menu-item:hover {
+  background-color: var(--vscode-menu-selectionBackground);
+  color: var(--vscode-menu-selectionForeground);
+}
+
+.context-menu-item .codicon {
+  font-size: 14px;
+  width: 16px;
+}
+
+.context-menu-separator {
+  height: 1px;
+  background-color: var(--vscode-menu-separatorBackground);
+  margin: 4px 0;
+}
+
+.context-menu-item.danger {
+  color: var(--color-issue);
+}
+
+.context-menu-item.danger:hover {
+  background-color: var(--color-issue);
+  color: white;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+/* Codicons */
+.codicon {
+  font-family: codicon;
+  font-size: 16px;
+}
+
+.codicon-modifier-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Utility */
+.hidden {
+  display: none !important;
+}

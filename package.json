@@ -28,7 +28,8 @@
       "aiBookmarksContainer": [
         {
           "id": "aiBookmarks",
-          "name": "Bookmarks"
+          "name": "Bookmarks",
+          "type": "webview"
         }
       ]
     },
@@ -143,6 +144,11 @@
         "command": "aiBookmarks.copyGroupInfo",
         "title": "Copy Group Info",
         "icon": "$(copy)"
+      },
+      {
+        "command": "aiBookmarks.openBookmarkDetail",
+        "title": "Open Bookmark Detail",
+        "icon": "$(info)"
       }
     ],
     "menus": {
@@ -185,6 +191,11 @@
       "view/item/context": [
         {
           "command": "aiBookmarks.editBookmark",
+          "when": "view == aiBookmarks && viewItem =~ /^bookmark/",
+          "group": "inline"
+        },
+        {
+          "command": "aiBookmarks.openBookmarkDetail",
           "when": "view == aiBookmarks && viewItem =~ /^bookmark/",
           "group": "inline"
         },
