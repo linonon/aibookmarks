@@ -1,4 +1,4 @@
-import { BookmarkStoreManagerStandalone } from '../store/bookmarkStoreStandalone';
+import { WorkspaceManager } from '../store/workspaceManager';
 import {
   CreateGroupArgs,
   AddBookmarkArgs,
@@ -14,7 +14,9 @@ import {
   GetBookmarkTreeArgs,
   BatchAddBookmarksArgs,
   ClearAllBookmarksArgs,
-  BookmarkCategory
+  BookmarkCategory,
+  Bookmark,
+  BookmarkGroup
 } from '../store/types';
 
 export interface ToolResult {
@@ -23,25 +25,96 @@ export interface ToolResult {
   error?: string;
 }
 
+// 扩展参数类型，添加可选的 projectRoot
+type WithProjectRoot<T> = T & { projectRoot?: string };
+
 export class MCPHandlersStandalone {
-  constructor(private store: BookmarkStoreManagerStandalone) {}
+  constructor(private workspaceManager: WorkspaceManager) {}
+
+  /**
+   * 获取指定工作区的 store
+   */
+  private getStore(projectRoot?: string) {
+    return this.workspaceManager.getStore(projectRoot);
+  }
+
+  // set_workspace - 设置当前活动工作区
+  setWorkspace(args: { path: string }): ToolResult {
+    try {
+      const { path } = args;
+
+      if (!path || typeof path !== 'string') {
+        return { success: false, error: 'path is required and must be a string' };
+      }
+
+      // 验证路径存在
+      const fs = require('fs');
+      if (!fs.existsSync(path)) {
+        return { success: false, error: `Workspace path does not exist: ${path}` };
+      }
+
+      // 设置默认工作区
+      this.workspaceManager.setDefaultWorkspace(path);
+
+      // 预先获取 store 以验证并初始化
+      this.workspaceManager.getStore(path);
+
+      return {
+        success: true,
+        data: {
+          workspace: path,
+          message: `Workspace set to: ${path}`,
+          bookmarkFile: `${path}/.vscode/ai-bookmarks.json`
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to set workspace: ${error}`
+      };
+    }
+  }
+
+  // get_workspace - 获取当前工作区信息
+  getWorkspace(): ToolResult {
+    try {
+      const defaultWorkspace = this.workspaceManager.getDefaultWorkspace();
+      const activeWorkspaces = this.workspaceManager.listActiveWorkspaces();
+
+      return {
+        success: true,
+        data: {
+          currentWorkspace: defaultWorkspace,
+          activeWorkspaces: activeWorkspaces,
+          bookmarkFile: `${defaultWorkspace}/.vscode/ai-bookmarks.json`
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to get workspace: ${error}`
+      };
+    }
+  }
 
   // create_group
-  createGroup(args: CreateGroupArgs): ToolResult {
+  createGroup(args: WithProjectRoot<CreateGroupArgs>): ToolResult {
     try {
-      const { name, description, query } = args;
+      const { name, description, query, projectRoot } = args;
+      const store = this.getStore(projectRoot);
 
       if (!name || typeof name !== 'string') {
         return { success: false, error: 'name is required and must be a string' };
       }
 
-      const groupId = this.store.createGroup(name, description, query, 'ai');
+      const groupId = store.createGroup(name, description, query, 'ai');
 
       return {
         success: true,
         data: {
           groupId,
-          message: `Successfully created group "${name}"`
+          message: `Successfully created group "${name}"`,
+          projectRoot: projectRoot || this.workspaceManager.getDefaultWorkspace()
         }
       };
     } catch (error) {
@@ -53,9 +126,10 @@ export class MCPHandlersStandalone {
   }
 
   // add_bookmark
-  addBookmark(args: AddBookmarkArgs): ToolResult {
+  addBookmark(args: WithProjectRoot<AddBookmarkArgs>): ToolResult {
     try {
-      const { groupId, parentId, location, title, description, order, category, tags } = args;
+      const { groupId, parentId, location, title, description, order, category, tags, projectRoot } = args;
+      const store = this.getStore(projectRoot);
 
       if (!groupId || typeof groupId !== 'string') {
         return { success: false, error: 'groupId is required and must be a string' };
@@ -80,7 +154,7 @@ export class MCPHandlersStandalone {
         };
       }
 
-      const bookmarkId = this.store.addBookmark(groupId, location, title, description, {
+      const bookmarkId = store.addBookmark(groupId, location, title, description, {
         parentId,
         order,
         category,
@@ -88,8 +162,7 @@ export class MCPHandlersStandalone {
       });
 
       if (!bookmarkId) {
-        // Could be group not found or parent bookmark not found
-        const group = this.store.getGroup(groupId);
+        const group = store.getGroup(groupId);
         if (!group) {
           return { success: false, error: `Group with id "${groupId}" not found` };
         }
@@ -116,9 +189,10 @@ export class MCPHandlersStandalone {
   }
 
   // add_child_bookmark
-  addChildBookmark(args: AddChildBookmarkArgs): ToolResult {
+  addChildBookmark(args: WithProjectRoot<AddChildBookmarkArgs>): ToolResult {
     try {
-      const { parentBookmarkId, location, title, description, order, category, tags } = args;
+      const { parentBookmarkId, location, title, description, order, category, tags, projectRoot } = args;
+      const store = this.getStore(projectRoot);
 
       if (!parentBookmarkId || typeof parentBookmarkId !== 'string') {
         return { success: false, error: 'parentBookmarkId is required and must be a string' };
@@ -143,7 +217,7 @@ export class MCPHandlersStandalone {
         };
       }
 
-      const bookmarkId = this.store.addChildBookmark(parentBookmarkId, location, title, description, {
+      const bookmarkId = store.addChildBookmark(parentBookmarkId, location, title, description, {
         order,
         category,
         tags
@@ -170,9 +244,10 @@ export class MCPHandlersStandalone {
   }
 
   // list_groups
-  listGroups(args: ListGroupsArgs): ToolResult {
+  listGroups(args: WithProjectRoot<ListGroupsArgs>): ToolResult {
     try {
-      const { createdBy } = args;
+      const { createdBy, projectRoot } = args;
+      const store = this.getStore(projectRoot);
 
       if (createdBy && !['ai', 'user'].includes(createdBy)) {
         return {
@@ -181,12 +256,12 @@ export class MCPHandlersStandalone {
         };
       }
 
-      const groups = this.store.listGroups(createdBy as 'ai' | 'user' | undefined);
+      const groups = store.listGroups(createdBy as 'ai' | 'user' | undefined);
 
       return {
         success: true,
         data: {
-          groups: groups.map(g => ({
+          groups: groups.map((g: BookmarkGroup) => ({
             id: g.id,
             name: g.name,
             description: g.description,
@@ -196,7 +271,8 @@ export class MCPHandlersStandalone {
             createdBy: g.createdBy,
             bookmarkCount: g.bookmarks.length
           })),
-          total: groups.length
+          total: groups.length,
+          projectRoot: projectRoot || this.workspaceManager.getDefaultWorkspace()
         }
       };
     } catch (error) {
@@ -208,9 +284,10 @@ export class MCPHandlersStandalone {
   }
 
   // list_bookmarks
-  listBookmarks(args: ListBookmarksArgs): ToolResult {
+  listBookmarks(args: WithProjectRoot<ListBookmarksArgs>): ToolResult {
     try {
-      const { groupId, parentId, includeDescendants, filePath, category, tags } = args;
+      const { groupId, parentId, includeDescendants, filePath, category, tags, projectRoot } = args;
+      const store = this.getStore(projectRoot);
 
       const validCategories: BookmarkCategory[] = [
         'entry-point', 'core-logic', 'issue', 'note'
@@ -222,7 +299,7 @@ export class MCPHandlersStandalone {
         };
       }
 
-      const results = this.store.listBookmarks({
+      const results = store.listBookmarks({
         groupId,
         parentId,
         includeDescendants,
@@ -234,7 +311,7 @@ export class MCPHandlersStandalone {
       return {
         success: true,
         data: {
-          bookmarks: results.map(r => ({
+          bookmarks: results.map((r: { bookmark: Bookmark; group: BookmarkGroup }) => ({
             id: r.bookmark.id,
             parentId: r.bookmark.parentId || null,
             order: r.bookmark.order,
@@ -245,7 +322,7 @@ export class MCPHandlersStandalone {
             tags: r.bookmark.tags,
             groupId: r.group.id,
             groupName: r.group.name,
-            hasChildren: this.store.hasChildren(r.bookmark.id)
+            hasChildren: store.hasChildren(r.bookmark.id)
           })),
           total: results.length
         }
@@ -259,9 +336,10 @@ export class MCPHandlersStandalone {
   }
 
   // update_group
-  updateGroup(args: UpdateGroupArgs): ToolResult {
+  updateGroup(args: WithProjectRoot<UpdateGroupArgs>): ToolResult {
     try {
-      const { groupId, name, description } = args;
+      const { groupId, name, description, projectRoot } = args;
+      const store = this.getStore(projectRoot);
 
       if (!groupId || typeof groupId !== 'string') {
         return { success: false, error: 'groupId is required and must be a string' };
@@ -271,7 +349,7 @@ export class MCPHandlersStandalone {
         return { success: false, error: 'At least one of name or description must be provided' };
       }
 
-      const success = this.store.updateGroup(groupId, { name, description });
+      const success = store.updateGroup(groupId, { name, description });
 
       if (!success) {
         return { success: false, error: `Group with id "${groupId}" not found` };
@@ -292,9 +370,10 @@ export class MCPHandlersStandalone {
   }
 
   // update_bookmark
-  updateBookmark(args: UpdateBookmarkArgs): ToolResult {
+  updateBookmark(args: WithProjectRoot<UpdateBookmarkArgs>): ToolResult {
     try {
-      const { bookmarkId, parentId, location, title, description, order, category, tags } = args;
+      const { bookmarkId, parentId, location, title, description, order, category, tags, projectRoot } = args;
+      const store = this.getStore(projectRoot);
 
       if (!bookmarkId || typeof bookmarkId !== 'string') {
         return { success: false, error: 'bookmarkId is required and must be a string' };
@@ -316,7 +395,7 @@ export class MCPHandlersStandalone {
         };
       }
 
-      const result = this.store.updateBookmark(bookmarkId, {
+      const result = store.updateBookmark(bookmarkId, {
         parentId,
         location,
         title,
@@ -359,15 +438,16 @@ export class MCPHandlersStandalone {
   }
 
   // remove_bookmark
-  removeBookmark(args: RemoveBookmarkArgs): ToolResult {
+  removeBookmark(args: WithProjectRoot<RemoveBookmarkArgs>): ToolResult {
     try {
-      const { bookmarkId } = args;
+      const { bookmarkId, projectRoot } = args;
+      const store = this.getStore(projectRoot);
 
       if (!bookmarkId || typeof bookmarkId !== 'string') {
         return { success: false, error: 'bookmarkId is required and must be a string' };
       }
 
-      const success = this.store.removeBookmark(bookmarkId);
+      const success = store.removeBookmark(bookmarkId);
 
       if (!success) {
         return { success: false, error: `Bookmark with id "${bookmarkId}" not found` };
@@ -388,21 +468,22 @@ export class MCPHandlersStandalone {
   }
 
   // remove_group
-  removeGroup(args: RemoveGroupArgs): ToolResult {
+  removeGroup(args: WithProjectRoot<RemoveGroupArgs>): ToolResult {
     try {
-      const { groupId } = args;
+      const { groupId, projectRoot } = args;
+      const store = this.getStore(projectRoot);
 
       if (!groupId || typeof groupId !== 'string') {
         return { success: false, error: 'groupId is required and must be a string' };
       }
 
-      const group = this.store.getGroup(groupId);
+      const group = store.getGroup(groupId);
       if (!group) {
         return { success: false, error: `Group with id "${groupId}" not found` };
       }
 
       const bookmarkCount = group.bookmarks.length;
-      const success = this.store.removeGroup(groupId);
+      const success = store.removeGroup(groupId);
 
       if (!success) {
         return { success: false, error: `Failed to remove group "${groupId}"` };
@@ -422,22 +503,22 @@ export class MCPHandlersStandalone {
     }
   }
 
-  // get_group - 获取单个分组的详细信息(包含所有书签)
-  getGroup(args: GetGroupArgs): ToolResult {
+  // get_group
+  getGroup(args: WithProjectRoot<GetGroupArgs>): ToolResult {
     try {
-      const { groupId } = args;
+      const { groupId, projectRoot } = args;
+      const store = this.getStore(projectRoot);
 
       if (!groupId || typeof groupId !== 'string') {
         return { success: false, error: 'groupId is required and must be a string' };
       }
 
-      const group = this.store.getGroup(groupId);
+      const group = store.getGroup(groupId);
       if (!group) {
         return { success: false, error: `Group with id "${groupId}" not found` };
       }
 
-      // Get tree structure for the group
-      const bookmarkTrees = this.store.getGroupBookmarkTrees(groupId);
+      const bookmarkTrees = store.getGroupBookmarkTrees(groupId);
 
       return {
         success: true,
@@ -450,8 +531,7 @@ export class MCPHandlersStandalone {
             createdAt: group.createdAt,
             updatedAt: group.updatedAt,
             createdBy: group.createdBy,
-            // Flat list with parentId for compatibility
-            bookmarks: group.bookmarks.map(b => ({
+            bookmarks: group.bookmarks.map((b: Bookmark) => ({
               id: b.id,
               parentId: b.parentId || null,
               order: b.order,
@@ -460,9 +540,8 @@ export class MCPHandlersStandalone {
               description: b.description,
               category: b.category,
               tags: b.tags,
-              hasChildren: this.store.hasChildren(b.id)
+              hasChildren: store.hasChildren(b.id)
             })),
-            // Tree structure for hierarchical display
             bookmarkTrees
           }
         }
@@ -475,22 +554,23 @@ export class MCPHandlersStandalone {
     }
   }
 
-  // get_bookmark - 获取单个书签的详细信息
-  getBookmark(args: GetBookmarkArgs): ToolResult {
+  // get_bookmark
+  getBookmark(args: WithProjectRoot<GetBookmarkArgs>): ToolResult {
     try {
-      const { bookmarkId } = args;
+      const { bookmarkId, projectRoot } = args;
+      const store = this.getStore(projectRoot);
 
       if (!bookmarkId || typeof bookmarkId !== 'string') {
         return { success: false, error: 'bookmarkId is required and must be a string' };
       }
 
-      const result = this.store.getBookmark(bookmarkId);
+      const result = store.getBookmark(bookmarkId);
       if (!result) {
         return { success: false, error: `Bookmark with id "${bookmarkId}" not found` };
       }
 
       const { bookmark, group } = result;
-      const childCount = this.store.getChildBookmarks(bookmarkId).length;
+      const childCount = store.getChildBookmarks(bookmarkId).length;
 
       return {
         success: true,
@@ -522,21 +602,22 @@ export class MCPHandlersStandalone {
     }
   }
 
-  // get_bookmark_tree - 获取书签及其所有子书签的树形结构
-  getBookmarkTree(args: GetBookmarkTreeArgs): ToolResult {
+  // get_bookmark_tree
+  getBookmarkTree(args: WithProjectRoot<GetBookmarkTreeArgs>): ToolResult {
     try {
-      const { bookmarkId, maxDepth } = args;
+      const { bookmarkId, maxDepth, projectRoot } = args;
+      const store = this.getStore(projectRoot);
 
       if (!bookmarkId || typeof bookmarkId !== 'string') {
         return { success: false, error: 'bookmarkId is required and must be a string' };
       }
 
-      const tree = this.store.getBookmarkTree(bookmarkId, maxDepth);
+      const tree = store.getBookmarkTree(bookmarkId, maxDepth);
       if (!tree) {
         return { success: false, error: `Bookmark with id "${bookmarkId}" not found` };
       }
 
-      const result = this.store.getBookmark(bookmarkId);
+      const result = store.getBookmark(bookmarkId);
 
       return {
         success: true,
@@ -556,10 +637,11 @@ export class MCPHandlersStandalone {
     }
   }
 
-  // batch_add_bookmarks - 批量添加书签到分组
-  batchAddBookmarks(args: BatchAddBookmarksArgs): ToolResult {
+  // batch_add_bookmarks
+  batchAddBookmarks(args: WithProjectRoot<BatchAddBookmarksArgs>): ToolResult {
     try {
-      const { groupId, parentId, bookmarks } = args;
+      const { groupId, parentId, bookmarks, projectRoot } = args;
+      const store = this.getStore(projectRoot);
 
       if (!groupId || typeof groupId !== 'string') {
         return { success: false, error: 'groupId is required and must be a string' };
@@ -569,14 +651,13 @@ export class MCPHandlersStandalone {
         return { success: false, error: 'bookmarks array is required and must not be empty' };
       }
 
-      const group = this.store.getGroup(groupId);
+      const group = store.getGroup(groupId);
       if (!group) {
         return { success: false, error: `Group with id "${groupId}" not found` };
       }
 
-      // Validate parentId if provided
       if (parentId) {
-        const parentBookmark = group.bookmarks.find(b => b.id === parentId);
+        const parentBookmark = group.bookmarks.find((b: Bookmark) => b.id === parentId);
         if (!parentBookmark) {
           return { success: false, error: `Parent bookmark with id "${parentId}" not found in group` };
         }
@@ -592,7 +673,6 @@ export class MCPHandlersStandalone {
       for (let i = 0; i < bookmarks.length; i++) {
         const b = bookmarks[i];
 
-        // Validate required fields
         if (!b.location || typeof b.location !== 'string') {
           results.push({ index: i, error: 'location is required' });
           continue;
@@ -610,7 +690,7 @@ export class MCPHandlersStandalone {
           continue;
         }
 
-        const bookmarkId = this.store.addBookmark(groupId, b.location, b.title, b.description, {
+        const bookmarkId = store.addBookmark(groupId, b.location, b.title, b.description, {
           parentId,
           order: b.order,
           category: b.category,
@@ -641,12 +721,12 @@ export class MCPHandlersStandalone {
     }
   }
 
-  // clear_all_bookmarks - 清除所有书签和分组
-  clearAllBookmarks(args: ClearAllBookmarksArgs): ToolResult {
+  // clear_all_bookmarks
+  clearAllBookmarks(args: WithProjectRoot<ClearAllBookmarksArgs>): ToolResult {
     try {
-      const { confirm } = args;
+      const { confirm, projectRoot } = args;
+      const store = this.getStore(projectRoot);
 
-      // 安全检查: 需要显式确认
       if (confirm !== true) {
         return {
           success: false,
@@ -654,14 +734,15 @@ export class MCPHandlersStandalone {
         };
       }
 
-      const { groupsRemoved, bookmarksRemoved } = this.store.clearAll();
+      const { groupsRemoved, bookmarksRemoved } = store.clearAll();
 
       return {
         success: true,
         data: {
           message: `Successfully cleared all bookmarks`,
           groupsRemoved,
-          bookmarksRemoved
+          bookmarksRemoved,
+          projectRoot: projectRoot || this.workspaceManager.getDefaultWorkspace()
         }
       };
     } catch (error) {

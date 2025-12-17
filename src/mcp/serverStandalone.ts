@@ -5,17 +5,57 @@ import {
   ListToolsRequestSchema,
   Tool
 } from '@modelcontextprotocol/sdk/types.js';
-import { BookmarkStoreManagerStandalone } from '../store/bookmarkStoreStandalone';
+import { WorkspaceManager } from '../store/workspaceManager';
 import { MCPHandlersStandalone } from './handlersStandalone';
+
+// projectRoot 参数定义 (所有工具共用)
+const PROJECT_ROOT_PROPERTY = {
+  projectRoot: {
+    type: 'string',
+    description: 'Project root directory path. Use this to specify which project the bookmark belongs to. If not specified, uses the default workspace.'
+  }
+};
 
 // Tool definitions
 const TOOLS: Tool[] = [
+  {
+    name: 'set_workspace',
+    description: `**IMPORTANT: Call this tool FIRST before any other bookmark operations!**
+
+Set the active workspace/project directory. This tells the bookmark system where to save bookmarks.
+
+Without calling this tool first, bookmarks will be saved to the wrong location (home directory instead of project directory).
+
+Example: If you're working on a project at /Users/name/projects/myapp, call:
+set_workspace({ path: "/Users/name/projects/myapp" })
+
+Then all subsequent bookmark operations will save to /Users/name/projects/myapp/.vscode/ai-bookmarks.json`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description: 'Absolute path to the project/workspace directory'
+        }
+      },
+      required: ['path']
+    }
+  },
+  {
+    name: 'get_workspace',
+    description: 'Get the current active workspace path and list of known workspaces.',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  },
   {
     name: 'create_group',
     description: 'Create a new bookmark group. Groups are used to organize bookmarks by topic or query.',
     inputSchema: {
       type: 'object',
       properties: {
+        ...PROJECT_ROOT_PROPERTY,
         name: {
           type: 'string',
           description: 'Group name, e.g., "Crash game core flow"'
@@ -84,6 +124,7 @@ CORRECT: 1. handleRequest (parent) → 1.1 validateInput (child at call site) �
     inputSchema: {
       type: 'object',
       properties: {
+        ...PROJECT_ROOT_PROPERTY,
         groupId: {
           type: 'string',
           description: 'The ID of the group to add the bookmark to'
@@ -146,6 +187,7 @@ Parent bookmark: "handleRequest" at handler.go:50 (function definition or entry 
     inputSchema: {
       type: 'object',
       properties: {
+        ...PROJECT_ROOT_PROPERTY,
         parentBookmarkId: {
           type: 'string',
           description: 'The ID of the parent bookmark'
@@ -186,6 +228,7 @@ Parent bookmark: "handleRequest" at handler.go:50 (function definition or entry 
     inputSchema: {
       type: 'object',
       properties: {
+        ...PROJECT_ROOT_PROPERTY,
         createdBy: {
           type: 'string',
           enum: ['ai', 'user'],
@@ -200,6 +243,7 @@ Parent bookmark: "handleRequest" at handler.go:50 (function definition or entry 
     inputSchema: {
       type: 'object',
       properties: {
+        ...PROJECT_ROOT_PROPERTY,
         groupId: {
           type: 'string',
           description: 'Filter by group ID'
@@ -235,6 +279,7 @@ Parent bookmark: "handleRequest" at handler.go:50 (function definition or entry 
     inputSchema: {
       type: 'object',
       properties: {
+        ...PROJECT_ROOT_PROPERTY,
         groupId: {
           type: 'string',
           description: 'The ID of the group to update'
@@ -257,6 +302,7 @@ Parent bookmark: "handleRequest" at handler.go:50 (function definition or entry 
     inputSchema: {
       type: 'object',
       properties: {
+        ...PROJECT_ROOT_PROPERTY,
         bookmarkId: {
           type: 'string',
           description: 'The ID of the bookmark to update'
@@ -301,6 +347,7 @@ Parent bookmark: "handleRequest" at handler.go:50 (function definition or entry 
     inputSchema: {
       type: 'object',
       properties: {
+        ...PROJECT_ROOT_PROPERTY,
         bookmarkId: {
           type: 'string',
           description: 'The ID of the bookmark to remove'
@@ -315,6 +362,7 @@ Parent bookmark: "handleRequest" at handler.go:50 (function definition or entry 
     inputSchema: {
       type: 'object',
       properties: {
+        ...PROJECT_ROOT_PROPERTY,
         groupId: {
           type: 'string',
           description: 'The ID of the group to remove'
@@ -329,6 +377,7 @@ Parent bookmark: "handleRequest" at handler.go:50 (function definition or entry 
     inputSchema: {
       type: 'object',
       properties: {
+        ...PROJECT_ROOT_PROPERTY,
         groupId: {
           type: 'string',
           description: 'The ID of the group to retrieve'
@@ -343,6 +392,7 @@ Parent bookmark: "handleRequest" at handler.go:50 (function definition or entry 
     inputSchema: {
       type: 'object',
       properties: {
+        ...PROJECT_ROOT_PROPERTY,
         bookmarkId: {
           type: 'string',
           description: 'The ID of the bookmark to retrieve'
@@ -357,6 +407,7 @@ Parent bookmark: "handleRequest" at handler.go:50 (function definition or entry 
     inputSchema: {
       type: 'object',
       properties: {
+        ...PROJECT_ROOT_PROPERTY,
         bookmarkId: {
           type: 'string',
           description: 'The ID of the bookmark to get tree for'
@@ -373,13 +424,45 @@ Parent bookmark: "handleRequest" at handler.go:50 (function definition or entry 
     name: 'batch_add_bookmarks',
     description: `Add multiple bookmarks to a group in a single operation. More efficient than adding one by one.
 
-**TIP:** Use parentId parameter to add multiple children under a parent bookmark efficiently.
-Example: After creating a parent bookmark for "handleRequest", use batch_add_bookmarks with parentId to add all its sub-functions as children.
+**CRITICAL - This tool is for adding SIBLING bookmarks at the SAME LEVEL!**
+- All bookmarks in one batch share the same parent (or all are top-level if no parentId)
+- For HIERARCHICAL structures (parent-child relationships), you MUST:
+  1. First create the parent bookmark with add_bookmark
+  2. Then use batch_add_bookmarks with parentId to add children under that parent
+  3. Repeat for deeper levels
 
-**Formatting Guidelines:** Same as add_bookmark - each bookmark's title should be short, description should NOT repeat title.`,
+**WRONG - Flattening a call chain into one batch (loses hierarchy):**
+\`\`\`
+batch_add_bookmarks([
+  { title: "handleRequest" },      // Should be parent
+  { title: "validateInput" },      // Should be child of handleRequest
+  { title: "processData" }         // Should be child of handleRequest
+])
+// Result: All at same level, no hierarchy!
+\`\`\`
+
+**CORRECT - Building hierarchy step by step:**
+\`\`\`
+// Step 1: Create parent
+add_bookmark({ title: "handleRequest", ... }) → returns parentId
+
+// Step 2: Add children under parent
+batch_add_bookmarks({
+  parentId: parentId,
+  bookmarks: [
+    { title: "validateInput", location: "handler.go:55" },  // call site
+    { title: "processData", location: "handler.go:60" }     // call site
+  ]
+})
+// Result: Proper hierarchy with handleRequest as parent!
+\`\`\`
+
+**Location Guidelines:** Same as add_bookmark - mark CALL SITES, not function definitions!
+**Title Guidelines:** Describe WHAT THIS LINE DOES, not just function name!`,
     inputSchema: {
       type: 'object',
       properties: {
+        ...PROJECT_ROOT_PROPERTY,
         groupId: {
           type: 'string',
           description: 'The ID of the group to add bookmarks to'
@@ -434,6 +517,7 @@ Example: After creating a parent bookmark for "handleRequest", use batch_add_boo
     inputSchema: {
       type: 'object',
       properties: {
+        ...PROJECT_ROOT_PROPERTY,
         confirm: {
           type: 'boolean',
           description: 'Must be set to true to confirm the operation. This prevents accidental data loss.'
@@ -448,8 +532,8 @@ export class MCPServerStandalone {
   private server: Server;
   private handlers: MCPHandlersStandalone;
 
-  constructor(store: BookmarkStoreManagerStandalone) {
-    this.handlers = new MCPHandlersStandalone(store);
+  constructor(workspaceManager: WorkspaceManager) {
+    this.handlers = new MCPHandlersStandalone(workspaceManager);
     this.server = new Server(
       {
         name: 'ai-bookmarks',
@@ -477,6 +561,12 @@ export class MCPServerStandalone {
 
       let result;
       switch (name) {
+        case 'set_workspace':
+          result = this.handlers.setWorkspace(args as unknown as Parameters<MCPHandlersStandalone['setWorkspace']>[0]);
+          break;
+        case 'get_workspace':
+          result = this.handlers.getWorkspace();
+          break;
         case 'create_group':
           result = this.handlers.createGroup(args as unknown as Parameters<MCPHandlersStandalone['createGroup']>[0]);
           break;

@@ -373,10 +373,41 @@ Parent bookmark: "handleRequest" at handler.go:50 (function definition or entry 
     name: 'batch_add_bookmarks',
     description: `Add multiple bookmarks to a group in a single operation. More efficient than adding one by one.
 
-**TIP:** Use parentId parameter to add multiple children under a parent bookmark efficiently.
-Example: After creating a parent bookmark for "handleRequest", use batch_add_bookmarks with parentId to add all its sub-functions as children.
+**CRITICAL - This tool is for adding SIBLING bookmarks at the SAME LEVEL!**
+- All bookmarks in one batch share the same parent (or all are top-level if no parentId)
+- For HIERARCHICAL structures (parent-child relationships), you MUST:
+  1. First create the parent bookmark with add_bookmark
+  2. Then use batch_add_bookmarks with parentId to add children under that parent
+  3. Repeat for deeper levels
 
-**Formatting Guidelines:** Same as add_bookmark - each bookmark's title should be short, description should NOT repeat title.`,
+**WRONG - Flattening a call chain into one batch (loses hierarchy):**
+\`\`\`
+batch_add_bookmarks([
+  { title: "handleRequest" },      // Should be parent
+  { title: "validateInput" },      // Should be child of handleRequest
+  { title: "processData" }         // Should be child of handleRequest
+])
+// Result: All at same level, no hierarchy!
+\`\`\`
+
+**CORRECT - Building hierarchy step by step:**
+\`\`\`
+// Step 1: Create parent
+add_bookmark({ title: "handleRequest", ... }) → returns parentId
+
+// Step 2: Add children under parent
+batch_add_bookmarks({
+  parentId: parentId,
+  bookmarks: [
+    { title: "validateInput", location: "handler.go:55" },  // call site
+    { title: "processData", location: "handler.go:60" }     // call site
+  ]
+})
+// Result: Proper hierarchy with handleRequest as parent!
+\`\`\`
+
+**Location Guidelines:** Same as add_bookmark - mark CALL SITES, not function definitions!
+**Title Guidelines:** Describe WHAT THIS LINE DOES, not just function name!`,
     inputSchema: {
       type: 'object',
       properties: {
