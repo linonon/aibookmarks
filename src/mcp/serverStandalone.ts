@@ -151,7 +151,29 @@ CORRECT: 1. handleRequest (parent) → 1.1 validateInput (child at call site) �
         },
         description: {
           type: 'string',
-          description: 'Detailed explanation of what this code does and why it matters.'
+          description: `Explanation of what this code does.
+
+**DESCRIPTION FORMAT:**
+- **First line**: Brief summary of what this line/block does (one sentence, plain text)
+- **Following lines** (optional): If more details needed, add blank line then use Markdown for rich formatting
+
+**Markdown features** (use ONLY after first line):
+- Use **bold**, *italic*, \`code\`, ~~strikethrough~~ for emphasis
+- Use numbered lists (1. 2. 3.) or bullet lists (- item)
+- Use code blocks with \`\`\`language\\n...\\n\`\`\` for multi-line code
+- Use > for blockquotes and important notes
+
+**Example description:**
+\`\`\`
+验证用户下注是否合法, 包括余额、限额和游戏状态检查
+
+检查细节:
+1. **余额检查**: 用户钱包余额 >= 下注金额
+2. **限额检查**: 下注金额在 \`minBet\` - \`maxBet\` 范围内
+3. **状态检查**: 游戏当前状态为 \`BETTING_PHASE\`
+
+> 注意: 验证失败会抛出 \`InvalidBetError\` 异常
+\`\`\``
         },
         order: {
           type: 'number',
@@ -210,7 +232,29 @@ Parent bookmark: "handleRequest" at handler.go:50 (function definition or entry 
         },
         description: {
           type: 'string',
-          description: 'Detailed explanation of what this code does and why it matters.'
+          description: `Explanation of what this code does.
+
+**DESCRIPTION FORMAT:**
+- **First line**: Brief summary of what this line/block does (one sentence, plain text)
+- **Following lines** (optional): If more details needed, add blank line then use Markdown for rich formatting
+
+**Markdown features** (use ONLY after first line):
+- Use **bold**, *italic*, \`code\`, ~~strikethrough~~ for emphasis
+- Use numbered lists (1. 2. 3.) or bullet lists (- item)
+- Use code blocks with \`\`\`language\\n...\\n\`\`\` for multi-line code
+- Use > for blockquotes and important notes
+
+**Example description:**
+\`\`\`
+验证用户下注是否合法, 包括余额、限额和游戏状态检查
+
+检查细节:
+1. **余额检查**: 用户钱包余额 >= 下注金额
+2. **限额检查**: 下注金额在 \`minBet\` - \`maxBet\` 范围内
+3. **状态检查**: 游戏当前状态为 \`BETTING_PHASE\`
+
+> 注意: 验证失败会抛出 \`InvalidBetError\` 异常
+\`\`\``
         },
         order: {
           type: 'number',
@@ -328,7 +372,29 @@ Circular references are automatically prevented when moving in hierarchy.`,
         },
         description: {
           type: 'string',
-          description: 'New description'
+          description: `New description
+
+**DESCRIPTION FORMAT:**
+- **First line**: Brief summary of what this line/block does (one sentence, plain text)
+- **Following lines** (optional): If more details needed, add blank line then use Markdown for rich formatting
+
+**Markdown features** (use ONLY after first line):
+- Use **bold**, *italic*, \`code\`, ~~strikethrough~~ for emphasis
+- Use numbered lists (1. 2. 3.) or bullet lists (- item)
+- Use code blocks with \`\`\`language\\n...\\n\`\`\` for multi-line code
+- Use > for blockquotes and important notes
+
+**Example description:**
+\`\`\`
+验证用户下注是否合法, 包括余额、限额和游戏状态检查
+
+检查细节:
+1. **余额检查**: 用户钱包余额 >= 下注金额
+2. **限额检查**: 下注金额在 \`minBet\` - \`maxBet\` 范围内
+3. **状态检查**: 游戏当前状态为 \`BETTING_PHASE\`
+
+> 注意: 验证失败会抛出 \`InvalidBetError\` 异常
+\`\`\``
         },
         order: {
           type: 'number',
@@ -487,7 +553,29 @@ batch_add_bookmarks({
               },
               description: {
                 type: 'string',
-                description: 'Detailed explanation. DO NOT include title.'
+                description: `Explanation of what this code does. DO NOT include title.
+
+**DESCRIPTION FORMAT:**
+- **First line**: Brief summary of what this line/block does (one sentence, plain text)
+- **Following lines** (optional): If more details needed, add blank line then use Markdown for rich formatting
+
+**Markdown features** (use ONLY after first line):
+- Use **bold**, *italic*, \`code\`, ~~strikethrough~~ for emphasis
+- Use numbered lists (1. 2. 3.) or bullet lists (- item)
+- Use code blocks with \`\`\`language\\n...\\n\`\`\` for multi-line code
+- Use > for blockquotes and important notes
+
+**Example description:**
+\`\`\`
+验证用户下注是否合法, 包括余额、限额和游戏状态检查
+
+检查细节:
+1. **余额检查**: 用户钱包余额 >= 下注金额
+2. **限额检查**: 下注金额在 \`minBet\` - \`maxBet\` 范围内
+3. **状态检查**: 游戏当前状态为 \`BETTING_PHASE\`
+
+> 注意: 验证失败会抛出 \`InvalidBetError\` 异常
+\`\`\``
               },
               order: {
                 type: 'number',

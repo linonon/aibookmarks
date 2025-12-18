@@ -326,8 +326,17 @@ body {
   flex-shrink: 0;
 }
 
-.group-name {
+/* Group Info - name 和 query 在同一行 */
+.group-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.group-name {
   font-size: 14px;        /* 从 13px 增大到 14px */
   font-weight: 700;       /* 从 600 加粗到 700 */
   white-space: nowrap;
@@ -335,6 +344,7 @@ body {
   text-overflow: ellipsis;
   min-width: 0;
   letter-spacing: 0.2px;  /* 增加字间距，更醒目 */
+  flex-shrink: 1;
 }
 
 /* 数字徽章 - 更醒目的设计 */
@@ -358,11 +368,10 @@ body {
 
 /* 问题说明 - 内联显示在 header 右侧 */
 .group-query {
-  flex: 1;                /* 占据剩余空间 */
   font-size: 10px;
   color: var(--vscode-descriptionForeground);
   padding: 3px 8px;       /* 紧凑的内边距 */
-  margin: 0 8px;          /* 左右间距 */
+  margin: 0;              /* 去掉 margin, gap 已处理间距 */
   border-radius: 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -370,6 +379,7 @@ body {
   font-style: italic;
   opacity: 0.7;
   min-width: 0;           /* 允许缩小 */
+  flex-shrink: 1;
 
   /* 微妙的背景色 */
   background-color: rgba(59, 130, 246, 0.06);
@@ -686,15 +696,24 @@ body {
   min-width: 0;
 }
 
+/* Bookmark Header - title 和 location 在同一行 */
+.bookmark-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  min-width: 0;
+}
+
 .bookmark-title {
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .bookmark-title .codicon {
@@ -711,15 +730,37 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   opacity: 0.8;
+  flex-shrink: 0;
 }
 
 .bookmark-description {
   font-size: 11px;
   color: #ffffff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   opacity: 0.9;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  
+  /* 默认显示1行 */
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bookmark-description:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+}
+
+/* 展开状态 */
+.bookmark-description.expanded {
+  -webkit-line-clamp: unset;
+  display: block;
 }
 
 /* Category Colors */
@@ -742,26 +783,40 @@ body {
 /* 旧的层级缩进已移至上方的极简层级设计中 */
 
 /* Expandable Bookmark (has children) */
-.bookmark-item.has-children .bookmark-chevron {
+.bookmark-container.has-children .bookmark-chevron {
   display: flex;
+}
+
+.bookmark-container.has-children .bookmark-item {
+  padding-left: 24px;  /* 给 chevron 留出空间 */
 }
 
 .bookmark-chevron {
   display: none;
   position: absolute;
-  left: calc(8px + var(--order-circle-size) + 4px);
-  top: 10px;
-  width: 14px;
-  height: 14px;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%) rotate(90deg);  /* 垂直居中 + 向下旋转 */
+  width: 16px;
+  height: 16px;
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  color: var(--vscode-descriptionForeground);
-  transition: transform var(--transition-speed);
+  line-height: 1;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  z-index: 10;
+  opacity: 0.7;
+  user-select: none;
 }
 
-.bookmark-item.collapsed .bookmark-chevron {
-  transform: rotate(-90deg);
+.bookmark-chevron:hover {
+  opacity: 1;
+}
+
+.bookmark-container.collapsed .bookmark-chevron {
+  transform: translateY(-50%) rotate(0deg);  /* 折叠时向右 */
 }
 
 /* Children List - 嵌套容器内的子书签列表 */
@@ -888,6 +943,132 @@ body {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* ==================== Markdown 渲染样式 ==================== */
+
+.bookmark-description p {
+  margin: 0;
+  padding: 0;
+}
+
+.bookmark-description strong {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.bookmark-description em {
+  font-style: italic;
+  color: #e0e0e0;
+}
+
+.bookmark-description code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 10px;
+  color: #ffcc99;
+}
+
+.bookmark-description pre {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 6px 8px;
+  border-radius: 4px;
+  margin: 4px 0;
+  overflow-x: auto;
+}
+
+.bookmark-description pre code {
+  background: none;
+  padding: 0;
+  color: #cccccc;
+}
+
+.bookmark-description ul,
+.bookmark-description ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.bookmark-description li {
+  margin: 2px 0;
+}
+
+.bookmark-description blockquote {
+  border-left: 3px solid rgba(255, 255, 255, 0.3);
+  padding-left: 8px;
+  margin: 4px 0;
+  color: #cccccc;
+  font-style: italic;
+}
+
+.bookmark-description s,
+.bookmark-description del {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+/* ==================== 编辑模式样式 ==================== */
+
+.description-edit-container {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.description-edit-textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: 6px 8px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: var(--vscode-font-family);
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.description-edit-textarea:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  border-color: var(--vscode-focusBorder);
+}
+
+.description-edit-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  justify-content: flex-end;
+}
+
+.description-edit-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.description-edit-btn:hover {
+  opacity: 0.8;
+}
+
+.description-edit-save {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.description-edit-cancel {
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+/* 编辑模式时禁用展开/折叠样式 */
+.bookmark-description.editing {
+  -webkit-line-clamp: unset;
+  display: block;
 }
 
 /* Utility */

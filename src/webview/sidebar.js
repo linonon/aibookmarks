@@ -92,6 +92,16 @@
       case 'collapseAll':
         collapseAllGroups();
         break;
+      case 'collapseGroup':
+        if (message.groupId) {
+          collapseGroup(message.groupId);
+        }
+        break;
+      case 'expandGroup':
+        if (message.groupId) {
+          expandGroup(message.groupId);
+        }
+        break;
       case 'revealBookmark':
         if (message.bookmarkId) {
           revealBookmark(message.bookmarkId);
@@ -147,8 +157,10 @@
           <span class="group-icon">
             <span class="codicon ${group.createdBy === 'ai' ? 'codicon-sparkle' : 'codicon-bookmark'}"></span>
           </span>
-          <span class="group-name">${escapeHtml(group.name)}</span>
-          ${group.query ? `<span class="group-query" title="${escapeHtml(group.query)}">Q: ${escapeHtml(group.query)}</span>` : ''}
+          <div class="group-info">
+            <span class="group-name">${escapeHtml(group.name)}</span>
+            ${group.query ? `<span class="group-query" title="${escapeHtml(group.query)}">Q: ${escapeHtml(group.query)}</span>` : ''}
+          </div>
           <span class="group-count">${bookmarkCount}</span>
         </div>
         <div class="bookmarks-list ${isCollapsed ? 'collapsed' : ''}" data-group-id="${escapeHtml(group.id)}">
@@ -186,6 +198,16 @@
       const hasChildren = bookmarks.some(b => b.parentId === bookmark.id);
       const isCollapsed = collapsedBookmarks.has(bookmark.id);
 
+      // 调试输出
+      if (hasChildren) {
+        console.log('[Chevron Debug] Bookmark with children:', {
+          title: bookmark.title,
+          id: bookmark.id,
+          hasChildren,
+          childCount: bookmarks.filter(/** @param {any} b */ b => b.parentId === bookmark.id).length
+        });
+      }
+
       // 获取子书签
       const childrenHtml = hasChildren
         ? renderBookmarkTree(bookmarks, groupId, bookmark.id, depth + 1)
@@ -199,6 +221,17 @@
   function renderBookmark(bookmark, groupId, depth, hasChildren, isCollapsed, childrenHtml) {
     const category = bookmark.category || 'note';
 
+    // 调试输出 - 验证 chevron HTML 生成
+    if (hasChildren) {
+      console.log('[Chevron Render Debug]', {
+        title: bookmark.title,
+        id: bookmark.id,
+        hasChildren,
+        willRenderChevron: true,
+        containerClasses: `has-children ${isCollapsed ? 'collapsed' : ''}`
+      });
+    }
+
     return `
       <div class="bookmark-container ${hasChildren ? 'has-children' : ''} ${isCollapsed ? 'collapsed' : ''}"
            data-bookmark-id="${escapeHtml(bookmark.id)}"
@@ -207,14 +240,20 @@
         <div class="bookmark-item"
              data-category="${escapeHtml(category)}">
           ${hasChildren ? `
-            <span class="bookmark-chevron">
-              <span class="codicon codicon-chevron-down"></span>
-            </span>
+            <span class="bookmark-chevron">▶</span>
           ` : ''}
           <div class="bookmark-content">
-            <div class="bookmark-title">${escapeHtml(bookmark.title)}</div>
-            <div class="bookmark-location">${escapeHtml(formatLocation(bookmark.location))}</div>
-            ${bookmark.description ? `<div class="bookmark-description">${escapeHtml(truncate(bookmark.description, 60))}</div>` : ''}
+            <div class="bookmark-header">
+              <span class="bookmark-title">${escapeHtml(bookmark.title)}</span>
+              <span class="bookmark-location">${escapeHtml(formatLocation(bookmark.location))}</span>
+            </div>
+            ${bookmark.description ? `
+              <div class="bookmark-description"
+                   data-bookmark-id="${escapeHtml(bookmark.id)}"
+                   data-markdown="${escapeHtml(bookmark.description)}">
+                ${renderMarkdown(bookmark.description)}
+              </div>
+            ` : ''}
           </div>
         </div>
         ${hasChildren ? `
@@ -273,7 +312,21 @@
           return;
         }
 
-        // 单击 - 跳转到代码
+        // 检查是否点击了 description (或其子元素)
+        const descElement = e.target.closest('.bookmark-description');
+        if (descElement) {
+          // 点击 description 区域不跳转
+          // 检查是否在编辑模式
+          if (descElement.classList.contains('editing')) {
+            return; // 编辑中不处理任何操作
+          }
+
+          // 单击: 展开/折叠
+          descElement.classList.toggle('expanded');
+          return;
+        }
+
+        // 单击其他区域 - 跳转到代码
         vscode.postMessage({ type: 'jumpToBookmark', bookmarkId });
       });
 
@@ -288,6 +341,20 @@
         const bookmarkId = container.getAttribute('data-bookmark-id');
         const groupId = container.getAttribute('data-group-id');
         showBookmarkContextMenu(e, bookmarkId, groupId);
+      });
+    });
+
+    // 双击进入编辑模式
+    document.querySelectorAll('.bookmark-description').forEach(desc => {
+      desc.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // 确保获取的是 .bookmark-description 元素，而不是其子元素
+        const descElement = e.target.closest('.bookmark-description');
+        if (descElement) {
+          enterEditMode(descElement);
+        }
       });
     });
   }
@@ -329,6 +396,109 @@
     }
 
     vscode.postMessage({ type: 'toggleBookmark', bookmarkId, expanded: !collapsedBookmarks.has(bookmarkId) });
+  }
+
+  /**
+   * 进入编辑模式
+   * @param {HTMLElement} descElement - 描述元素
+   */
+  function enterEditMode(descElement) {
+    // 防止重复进入
+    if (descElement.classList.contains('editing')) {
+      return;
+    }
+
+    const bookmarkId = descElement.dataset.bookmarkId;
+    const originalMarkdown = descElement.dataset.markdown || '';
+
+    // 调试日志
+    console.log('Enter edit mode:', {
+      bookmarkId,
+      hasMarkdown: !!descElement.dataset.markdown,
+      markdownLength: originalMarkdown.length,
+      element: descElement
+    });
+
+    // 如果没有数据,不进入编辑模式
+    if (!bookmarkId) {
+      console.warn('Cannot enter edit mode: missing bookmark ID');
+      return;
+    }
+
+    // 创建编辑容器
+    const editContainer = document.createElement('div');
+    editContainer.className = 'description-edit-container';
+
+    // 创建 textarea
+    const textarea = document.createElement('textarea');
+    textarea.className = 'description-edit-textarea';
+    textarea.value = originalMarkdown;
+    textarea.rows = 4;
+
+    // 创建按钮容器
+    const buttonsDiv = document.createElement('div');
+    buttonsDiv.className = 'description-edit-buttons';
+
+    // 保存按钮
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save';
+    saveBtn.className = 'description-edit-btn description-edit-save';
+    saveBtn.onclick = () => {
+      const newMarkdown = textarea.value.trim();
+      if (newMarkdown !== originalMarkdown) {
+        // 发送更新消息到 Extension
+        vscode.postMessage({
+          type: 'updateBookmarkDescription',
+          bookmarkId: bookmarkId,
+          description: newMarkdown
+        });
+      }
+      exitEditMode(descElement, editContainer);
+    };
+
+    // 取消按钮
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.className = 'description-edit-btn description-edit-cancel';
+    cancelBtn.onclick = () => exitEditMode(descElement, editContainer);
+
+    // 组装 UI
+    buttonsDiv.appendChild(saveBtn);
+    buttonsDiv.appendChild(cancelBtn);
+    editContainer.appendChild(textarea);
+    editContainer.appendChild(buttonsDiv);
+
+    // 替换原内容
+    descElement.classList.add('editing');
+    descElement.innerHTML = '';
+    descElement.appendChild(editContainer);
+
+    // 自动聚焦并全选
+    textarea.focus();
+    textarea.select();
+
+    // ESC 取消, Ctrl+Enter 保存
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        exitEditMode(descElement, editContainer);
+      } else if (e.key === 'Enter' && e.ctrlKey) {
+        saveBtn.click();
+      }
+    });
+  }
+
+  /**
+   * 退出编辑模式
+   * @param {HTMLElement} descElement - 描述元素
+   * @param {HTMLElement} editContainer - 编辑容器
+   */
+  function exitEditMode(descElement, editContainer) {
+    // 移除编辑状态
+    descElement.classList.remove('editing');
+
+    // 恢复原 Markdown 渲染
+    const markdown = descElement.dataset.markdown || '';
+    descElement.innerHTML = renderMarkdown(markdown);
   }
 
   // 显示分组右键菜单
@@ -527,6 +697,50 @@
     return div.innerHTML;
   }
 
+  /**
+   * 安全渲染 Markdown 为 HTML
+   * @param {string} markdown - Markdown 源文本
+   * @returns {string} 安全的 HTML
+   */
+  function renderMarkdown(markdown) {
+    // 检查输入是否有效
+    if (!markdown) {
+      return '';
+    }
+
+    // 检查库是否加载
+    if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+      console.warn('Markdown libraries not loaded, falling back to plain text');
+      return escapeHtml(markdown);
+    }
+
+    try {
+      // 配置 marked
+      marked.setOptions({
+        breaks: true,        // 支持换行
+        gfm: true,          // GitHub Flavored Markdown
+        headerIds: false,   // 禁用标题 ID
+        mangle: false       // 禁用邮箱混淆
+      });
+
+      // 渲染 Markdown
+      const rawHtml = marked.parse(markdown);
+
+      // DOMPurify 清理
+      const cleanHtml = DOMPurify.sanitize(rawHtml, {
+        ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'ul', 'ol', 'li', 'blockquote', 's', 'del'],
+        ALLOWED_ATTR: ['class'],
+        FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'a', 'img'],
+        FORBID_ATTR: ['onerror', 'onclick', 'onload', 'href', 'src']
+      });
+
+      return cleanHtml;
+    } catch (error) {
+      console.error('Markdown rendering failed:', error);
+      return escapeHtml(markdown);
+    }
+  }
+
   // 工具函数: 截断文本
   function truncate(str, maxLength) {
     if (!str || str.length <= maxLength) return str;
@@ -581,6 +795,38 @@
     document.querySelectorAll('.bookmarks-list').forEach(list => {
       list.classList.add('collapsed');
     });
+  }
+
+  // 折叠单个分组
+  /**
+   * @param {string} groupId - 分组 ID
+   */
+  function collapseGroup(groupId) {
+    collapsedGroups.add(groupId);
+    const header = document.querySelector(`.group-header[data-group-id="${groupId}"]`);
+    const list = document.querySelector(`.bookmarks-list[data-group-id="${groupId}"]`);
+    if (header) {
+      header.classList.add('collapsed');
+    }
+    if (list) {
+      list.classList.add('collapsed');
+    }
+  }
+
+  // 展开单个分组
+  /**
+   * @param {string} groupId - 分组 ID
+   */
+  function expandGroup(groupId) {
+    collapsedGroups.delete(groupId);
+    const header = document.querySelector(`.group-header[data-group-id="${groupId}"]`);
+    const list = document.querySelector(`.bookmarks-list[data-group-id="${groupId}"]`);
+    if (header) {
+      header.classList.remove('collapsed');
+    }
+    if (list) {
+      list.classList.remove('collapsed');
+    }
   }
 
   // 聚焦到指定书签 (CodeLens 点击时调用)

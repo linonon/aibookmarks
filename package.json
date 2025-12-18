@@ -149,6 +149,16 @@
         "command": "aiBookmarks.openBookmarkDetail",
         "title": "Open Bookmark Detail",
         "icon": "$(info)"
+      },
+      {
+        "command": "aiBookmarks.collapseGroup",
+        "title": "Collapse Group",
+        "icon": "$(chevron-down)"
+      },
+      {
+        "command": "aiBookmarks.expandGroup",
+        "title": "Expand Group",
+        "icon": "$(chevron-up)"
       }
     ],
     "menus": {
@@ -234,6 +244,16 @@
           "group": "inline"
         },
         {
+          "command": "aiBookmarks.collapseGroup",
+          "when": "view == aiBookmarks && viewItem == group",
+          "group": "inline"
+        },
+        {
+          "command": "aiBookmarks.expandGroup",
+          "when": "view == aiBookmarks && viewItem == group",
+          "group": "inline"
+        },
+        {
           "command": "aiBookmarks.editGroup",
           "when": "view == aiBookmarks && viewItem == group"
         },
@@ -304,19 +324,34 @@
         },
         "aiBookmarks.viewMode": {
           "type": "string",
-          "enum": ["group", "file"],
+          "enum": [
+            "group",
+            "file"
+          ],
           "default": "group",
           "description": "View mode for bookmarks: 'group' (by bookmark group) or 'file' (by file path)"
         },
         "aiBookmarks.quickAddMode": {
           "type": "string",
-          "enum": ["full", "simple"],
+          "enum": [
+            "full",
+            "simple"
+          ],
           "default": "simple",
           "description": "Quick add bookmark mode: 'full' (complete flow with all options) or 'simple' (only title required)"
         },
         "aiBookmarks.defaultCategory": {
           "type": "string",
-          "enum": ["entry-point", "core-logic", "todo", "bug", "optimization", "explanation", "warning", "reference"],
+          "enum": [
+            "entry-point",
+            "core-logic",
+            "todo",
+            "bug",
+            "optimization",
+            "explanation",
+            "warning",
+            "reference"
+          ],
           "default": "explanation",
           "description": "Default category for new bookmarks"
         },
@@ -353,6 +388,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "@vscode/codicons": "^0.0.44",
     "uuid": "^9.0.0"
   },
   "devDependencies": {

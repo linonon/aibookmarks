@@ -119,6 +119,32 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   /**
+   * 折叠指定分组
+   */
+  public collapseGroup(groupId: string): void {
+    if (!this._view) {
+      return;
+    }
+    this._view.webview.postMessage({
+      type: 'collapseGroup',
+      groupId
+    });
+  }
+
+  /**
+   * 展开指定分组
+   */
+  public expandGroup(groupId: string): void {
+    if (!this._view) {
+      return;
+    }
+    this._view.webview.postMessage({
+      type: 'expandGroup',
+      groupId
+    });
+  }
+
+  /**
    * 聚焦到指定书签 (用于 CodeLens 点击)
    */
   public revealBookmark(bookmarkId: string): void {
@@ -248,6 +274,19 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
       case 'exportBookmarks':
         // 导出书签
         vscode.commands.executeCommand('aiBookmarks.exportMarkdown');
+        break;
+
+      case 'updateBookmarkDescription':
+        if (message.bookmarkId && message.description !== undefined) {
+          try {
+            this.bookmarkStore.updateBookmark(message.bookmarkId, {
+              description: message.description
+            });
+            vscode.window.showInformationMessage('Bookmark description updated');
+          } catch (error) {
+            vscode.window.showErrorMessage(`Failed to update bookmark: ${error}`);
+          }
+        }
         break;
 
       default:

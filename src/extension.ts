@@ -691,6 +691,30 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
     })
   );
 
+  // Collapse single group command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('aiBookmarks.collapseGroup', (item: unknown) => {
+      if (sidebarProvider) {
+        const groupItem = item as { type: string; group?: { id: string } };
+        if (groupItem?.type === 'group' && groupItem.group) {
+          sidebarProvider.collapseGroup(groupItem.group.id);
+        }
+      }
+    })
+  );
+
+  // Expand single group command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('aiBookmarks.expandGroup', (item: unknown) => {
+      if (sidebarProvider) {
+        const groupItem = item as { type: string; group?: { id: string } };
+        if (groupItem?.type === 'group' && groupItem.group) {
+          sidebarProvider.expandGroup(groupItem.group.id);
+        }
+      }
+    })
+  );
+
   // Edit group command (edit name and description)
   context.subscriptions.push(
     vscode.commands.registerCommand('aiBookmarks.editGroup', async (item: unknown) => {
