@@ -29,6 +29,8 @@
   let collapsedGroups = new Set();
   let collapsedBookmarks = new Set();
   let contextMenuTarget = null;
+  /** @type {{mode: string, targetBookmarkId: string, groupId: string, parentId: string|null}|null} */
+  let addBookmarkContext = null;
 
   // 初始化
   function init() {
@@ -74,6 +76,11 @@
 
     // 键盘事件
     document.addEventListener('keydown', handleKeyDown);
+
+    // 事件委托：在 groupsList 上监听所有书签点击
+    if (groupsList) {
+      groupsList.addEventListener('click', handleBookmarkClick);
+    }
   }
 
   // 处理来自 Extension 的消息
@@ -105,6 +112,21 @@
       case 'revealBookmark':
         if (message.bookmarkId) {
           revealBookmark(message.bookmarkId);
+        }
+        break;
+      case 'currentLocation':
+        handleCurrentLocation(message.location, message.error);
+        break;
+      case 'validationError':
+        // 显示错误提示，重新启用保存按钮
+        if (message.field && message.error) {
+          showError(message.field, message.error);
+        }
+        // 重新启用按钮
+        const saveBtn = document.querySelector('.form-btn-save');
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Save';
         }
         break;
     }
@@ -239,19 +261,30 @@
            data-depth="${depth}">
         <div class="bookmark-item"
              data-category="${escapeHtml(category)}">
-          ${hasChildren ? `
-            <span class="bookmark-chevron">▶</span>
-          ` : ''}
+          
           <div class="bookmark-content">
             <div class="bookmark-header">
+              ${hasChildren ? `<span class="bookmark-chevron"><span class="icon ${isCollapsed ? 'icon-expand' : 'icon-collapse'}"></span></span>` : ''}
               <span class="bookmark-title">${escapeHtml(bookmark.title)}</span>
               <span class="bookmark-location">${escapeHtml(formatLocation(bookmark.location))}</span>
+              <button class="bookmark-header-edit-btn"
+                      data-bookmark-id="${escapeHtml(bookmark.id)}"
+                      title="Edit bookmark">
+                <span class="icon icon-edit"></span>
+              </button>
             </div>
             ${bookmark.description ? `
-              <div class="bookmark-description"
-                   data-bookmark-id="${escapeHtml(bookmark.id)}"
-                   data-markdown="${escapeHtml(bookmark.description)}">
-                ${renderMarkdown(bookmark.description)}
+              <div class="bookmark-description-wrapper">
+                <div class="bookmark-action-buttons">
+                  <button class="bookmark-toggle-btn" data-bookmark-id="${escapeHtml(bookmark.id)}" title="Expand/Collapse">
+                    <span class="icon icon-expand"></span>
+                  </button>
+                </div>
+                <div class="bookmark-description"
+                     data-bookmark-id="${escapeHtml(bookmark.id)}"
+                     data-markdown="${escapeHtml(bookmark.description)}">
+                  ${renderMarkdown(bookmark.description)}
+                </div>
               </div>
             ` : ''}
           </div>
@@ -271,6 +304,91 @@
     // 只显示文件名和行号
     const parts = location.split('/');
     return parts[parts.length - 1];
+  }
+
+  // 处理书签点击事件 (事件委托)
+  function handleBookmarkClick(e) {
+    hideContextMenu(); // 关闭可能打开的右键菜单
+
+    // 检查是否点击了编辑按钮
+    const editBtn = e.target.closest('.bookmark-header-edit-btn');
+    if (editBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const bookmarkId = editBtn.getAttribute('data-bookmark-id');
+      enterFullEditMode(bookmarkId);
+      return;
+    }
+
+    // 检查是否点击了 bookmark-chevron
+    const chevron = e.target.closest('.bookmark-chevron');
+    if (chevron) {
+      e.preventDefault();
+      e.stopPropagation();
+      const container = chevron.closest('.bookmark-container');
+      if (container) {
+        const bookmarkId = container.getAttribute('data-bookmark-id');
+        toggleBookmark(bookmarkId);
+      }
+      return;
+    }
+
+    // 检查是否点击了展开/折叠按钮
+    const toggleBtn = e.target.closest('.bookmark-toggle-btn');
+    if (toggleBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const bookmarkId = toggleBtn.getAttribute('data-bookmark-id');
+      const descElement = document.querySelector(`.bookmark-description[data-bookmark-id="${bookmarkId}"]`);
+      const icon = toggleBtn.querySelector('.icon');
+
+      if (descElement && icon) {
+        const isExpanded = descElement.classList.toggle('expanded');
+        icon.className = isExpanded ? 'icon icon-collapse' : 'icon icon-expand';
+      }
+      return;
+    }
+
+    // 检查是否点击了编辑表单区域
+    const editForm = e.target.closest('.bookmark-edit-form');
+    if (editForm) {
+      // 点击表单区域不触发任何操作
+      e.stopPropagation();
+      return;
+    }
+
+    // 检查是否点击了 description 区域
+    const descElement = e.target.closest('.bookmark-description');
+    if (descElement) {
+      // 点击 description 不跳转
+      return;
+    }
+
+    // 检查是否点击了书签项
+    const bookmarkItem = e.target.closest('.bookmark-item');
+    if (bookmarkItem) {
+      e.stopPropagation();
+
+      const container = bookmarkItem.closest('.bookmark-container');
+      if (!container) return;
+
+      // 检查是否处于编辑模式
+      const bookmarkContent = container.querySelector('.bookmark-content');
+      if (bookmarkContent && bookmarkContent.querySelector('.bookmark-edit-form')) {
+        // 编辑模式下不触发跳转
+        return;
+      }
+
+      const bookmarkId = container.getAttribute('data-bookmark-id');
+
+      // 高亮当前书签 (移除其他高亮, 添加当前高亮)
+      document.querySelectorAll('.bookmark-container.active').forEach(activeContainer => {
+        activeContainer.classList.remove('active');
+      });
+      container.classList.add('active');
+
+      vscode.postMessage({ type: 'jumpToBookmark', bookmarkId });
+    }
   }
 
   // 绑定分组事件
@@ -294,42 +412,9 @@
 
   // 绑定书签事件
   function bindBookmarkEvents() {
+    // 只绑定 contextmenu 事件（不会冒泡，必须单独绑定）
+    // 其他事件（click）已通过事件委托在 groupsList 上处理
     document.querySelectorAll('.bookmark-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        e.stopPropagation();
-        hideContextMenu(); // 关闭可能打开的右键菜单
-
-        // data-* 属性在父元素 .bookmark-container 上
-        const container = item.closest('.bookmark-container');
-        if (!container) return;
-
-        const bookmarkId = container.getAttribute('data-bookmark-id');
-        const hasChildren = container.classList.contains('has-children');
-
-        // 检查是否点击了展开箭头
-        if (e.target.closest('.bookmark-chevron')) {
-          toggleBookmark(bookmarkId);
-          return;
-        }
-
-        // 检查是否点击了 description (或其子元素)
-        const descElement = e.target.closest('.bookmark-description');
-        if (descElement) {
-          // 点击 description 区域不跳转
-          // 检查是否在编辑模式
-          if (descElement.classList.contains('editing')) {
-            return; // 编辑中不处理任何操作
-          }
-
-          // 单击: 展开/折叠
-          descElement.classList.toggle('expanded');
-          return;
-        }
-
-        // 单击其他区域 - 跳转到代码
-        vscode.postMessage({ type: 'jumpToBookmark', bookmarkId });
-      });
-
       item.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -341,20 +426,6 @@
         const bookmarkId = container.getAttribute('data-bookmark-id');
         const groupId = container.getAttribute('data-group-id');
         showBookmarkContextMenu(e, bookmarkId, groupId);
-      });
-    });
-
-    // 双击进入编辑模式
-    document.querySelectorAll('.bookmark-description').forEach(desc => {
-      desc.addEventListener('dblclick', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        // 确保获取的是 .bookmark-description 元素，而不是其子元素
-        const descElement = e.target.closest('.bookmark-description');
-        if (descElement) {
-          enterEditMode(descElement);
-        }
       });
     });
   }
@@ -385,120 +456,292 @@
 
     if (!container || !childrenList) return;
 
+    // 找到箭头图标
+    const chevron = container.querySelector('.bookmark-chevron .icon');
+
     if (collapsedBookmarks.has(bookmarkId)) {
       collapsedBookmarks.delete(bookmarkId);
       container.classList.remove('collapsed');
       childrenList.classList.remove('collapsed');
+      
+      // 更新箭头图标：展开时向下
+      if (chevron) {
+        chevron.className = 'icon icon-collapse';
+      }
     } else {
       collapsedBookmarks.add(bookmarkId);
       container.classList.add('collapsed');
       childrenList.classList.add('collapsed');
+      
+      // 更新箭头图标：折叠时向右
+      if (chevron) {
+        chevron.className = 'icon icon-expand';
+      }
     }
 
     vscode.postMessage({ type: 'toggleBookmark', bookmarkId, expanded: !collapsedBookmarks.has(bookmarkId) });
   }
 
   /**
-   * 进入编辑模式
-   * @param {HTMLElement} descElement - 描述元素
+   * 进入全字段编辑模式
+   * @param {string} bookmarkId - 书签 ID
    */
-  function enterEditMode(descElement) {
-    // 防止重复进入
-    if (descElement.classList.contains('editing')) {
+  function enterFullEditMode(bookmarkId) {
+    // 查找书签数据
+    let bookmark = null;
+    for (const group of currentData.groups) {
+      bookmark = findBookmarkById(bookmarkId, group.bookmarks || []);
+      if (bookmark) break;
+    }
+
+    if (!bookmark) {
+      console.warn('Cannot find bookmark:', bookmarkId);
       return;
     }
 
-    const bookmarkId = descElement.dataset.bookmarkId;
-    const originalMarkdown = descElement.dataset.markdown || '';
-
-    // 调试日志
-    console.log('Enter edit mode:', {
-      bookmarkId,
-      hasMarkdown: !!descElement.dataset.markdown,
-      markdownLength: originalMarkdown.length,
-      element: descElement
-    });
-
-    // 如果没有数据,不进入编辑模式
-    if (!bookmarkId) {
-      console.warn('Cannot enter edit mode: missing bookmark ID');
-      return;
-    }
-
-    // 创建编辑容器
-    const editContainer = document.createElement('div');
-    editContainer.className = 'description-edit-container';
-
-    // 创建 textarea
-    const textarea = document.createElement('textarea');
-    textarea.className = 'description-edit-textarea';
-    textarea.value = originalMarkdown;
-    textarea.rows = 4;
-
-    // 创建按钮容器
-    const buttonsDiv = document.createElement('div');
-    buttonsDiv.className = 'description-edit-buttons';
-
-    // 保存按钮
-    const saveBtn = document.createElement('button');
-    saveBtn.textContent = 'Save';
-    saveBtn.className = 'description-edit-btn description-edit-save';
-    saveBtn.onclick = () => {
-      const newMarkdown = textarea.value.trim();
-      if (newMarkdown !== originalMarkdown) {
-        // 发送更新消息到 Extension
-        vscode.postMessage({
-          type: 'updateBookmarkDescription',
-          bookmarkId: bookmarkId,
-          description: newMarkdown
-        });
-      }
-      exitEditMode(descElement, editContainer);
+    // 保存原始数据
+    const originalData = {
+      title: bookmark.title,
+      location: bookmark.location,
+      description: bookmark.description || ''
     };
 
-    // 取消按钮
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.className = 'description-edit-btn description-edit-cancel';
-    cancelBtn.onclick = () => exitEditMode(descElement, editContainer);
+    // 找到书签容器
+    const container = document.querySelector(`.bookmark-container[data-bookmark-id="${bookmarkId}"]`);
+    if (!container) {
+      console.warn('Cannot find bookmark container');
+      return;
+    }
 
-    // 组装 UI
-    buttonsDiv.appendChild(saveBtn);
-    buttonsDiv.appendChild(cancelBtn);
-    editContainer.appendChild(textarea);
-    editContainer.appendChild(buttonsDiv);
+    const bookmarkContent = container.querySelector('.bookmark-content');
+    if (!bookmarkContent) {
+      console.warn('Cannot find bookmark content');
+      return;
+    }
 
-    // 替换原内容
-    descElement.classList.add('editing');
-    descElement.innerHTML = '';
-    descElement.appendChild(editContainer);
+    // 保存原始 HTML
+    const originalHTML = bookmarkContent.innerHTML;
 
-    // 自动聚焦并全选
-    textarea.focus();
-    textarea.select();
+    // 创建编辑表单
+    const formHTML = createEditForm(bookmark);
+    bookmarkContent.innerHTML = formHTML;
 
-    // ESC 取消, Ctrl+Enter 保存
-    textarea.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        exitEditMode(descElement, editContainer);
-      } else if (e.key === 'Enter' && e.ctrlKey) {
-        saveBtn.click();
+    // 阻止表单点击事件冒泡到 bookmark-container,防止误触发 JumpTo
+    const formElement = bookmarkContent.querySelector('.bookmark-edit-form');
+    if (formElement) {
+      formElement.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+    }
+
+    // 绑定保存和取消事件
+    const saveBtn = bookmarkContent.querySelector('.form-btn-save');
+    const cancelBtn = bookmarkContent.querySelector('.form-btn-cancel');
+    const titleInput = bookmarkContent.querySelector('#edit-title');
+    const locationInput = bookmarkContent.querySelector('#edit-location');
+    const descriptionTextarea = bookmarkContent.querySelector('#edit-description');
+
+    if (!saveBtn || !cancelBtn || !titleInput || !locationInput || !descriptionTextarea) {
+      console.warn('Cannot find form elements');
+      bookmarkContent.innerHTML = originalHTML;
+      return;
+    }
+
+    // 保存函数
+    function save() {
+      const title = titleInput.value.trim();
+      const location = locationInput.value.trim();
+      const description = descriptionTextarea.value.trim();
+
+      // 前端验证
+      const validation = validateInputs(title, location, description);
+      if (!validation.isValid) {
+        // 显示错误
+        for (const [field, error] of Object.entries(validation.errors)) {
+          showError(`error-${field}`, error);
+        }
+        return;
       }
-    });
+
+      // 清除所有错误
+      clearAllErrors();
+
+      // 禁用保存按钮
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+
+      // 发送更新消息
+      vscode.postMessage({
+        type: 'updateBookmarkFull',
+        bookmarkId: bookmarkId,
+        updates: { title, location, description }
+      });
+
+      // 注意: 成功后会收到 refresh 消息，不需要手动恢复
+    }
+
+    // 取消函数
+    function cancel() {
+      bookmarkContent.innerHTML = originalHTML;
+      // 重新绑定事件
+      bindBookmarkEvents();
+    }
+
+    // 绑定事件
+    saveBtn.addEventListener('click', save);
+    cancelBtn.addEventListener('click', cancel);
+
+    // 快捷键
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        cancel();
+      } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        save();
+      }
+    };
+
+    titleInput.addEventListener('keydown', handleKeyDown);
+    locationInput.addEventListener('keydown', handleKeyDown);
+    descriptionTextarea.addEventListener('keydown', handleKeyDown);
+
+    // 自适应高度
+    function adjustHeight() {
+      descriptionTextarea.style.height = 'auto';
+      descriptionTextarea.style.height = descriptionTextarea.scrollHeight + 'px';
+    }
+
+    descriptionTextarea.addEventListener('input', adjustHeight);
+    adjustHeight(); // 初始化高度
+
+    // 聚焦到 title
+    titleInput.focus();
+    titleInput.setSelectionRange(titleInput.value.length, titleInput.value.length);
   }
 
   /**
-   * 退出编辑模式
-   * @param {HTMLElement} descElement - 描述元素
-   * @param {HTMLElement} editContainer - 编辑容器
+   * 创建编辑表单 HTML
+   * @param {Object} bookmark - 书签对象
+   * @returns {string} 表单 HTML
    */
-  function exitEditMode(descElement, editContainer) {
-    // 移除编辑状态
-    descElement.classList.remove('editing');
+  function createEditForm(bookmark) {
+    return `
+      <div class="bookmark-edit-form">
+        <div class="form-field">
+          <label class="form-label">Title</label>
+          <input type="text" class="form-input" id="edit-title" value="${escapeHtml(bookmark.title)}" maxlength="200">
+          <div class="form-error" id="error-title"></div>
+        </div>
 
-    // 恢复原 Markdown 渲染
-    const markdown = descElement.dataset.markdown || '';
-    descElement.innerHTML = renderMarkdown(markdown);
+        <div class="form-field">
+          <label class="form-label">Location</label>
+          <input type="text" class="form-input" id="edit-location" value="${escapeHtml(bookmark.location)}">
+          <div class="form-error" id="error-location"></div>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">Description</label>
+          <textarea class="form-textarea" id="edit-description" maxlength="10000">${escapeHtml(bookmark.description || '')}</textarea>
+          <div class="form-error" id="error-description"></div>
+        </div>
+
+        <div class="form-actions">
+          <button class="form-btn-save" data-bookmark-id="${escapeHtml(bookmark.id)}">Save</button>
+          <button class="form-btn-cancel" data-bookmark-id="${escapeHtml(bookmark.id)}">Cancel</button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * 验证输入
+   * @param {string} title - 标题
+   * @param {string} location - 位置
+   * @param {string} description - 描述
+   * @returns {Object} 验证结果
+   */
+  function validateInputs(title, location, description) {
+    const errors = {};
+
+    // Title 验证
+    if (!title) {
+      errors.title = 'Title is required';
+    } else if (title.length > 200) {
+      errors.title = 'Title is too long (max 200 characters)';
+    }
+
+    // Location 验证
+    if (!location) {
+      errors.location = 'Location is required';
+    } else {
+      // 格式: file:line 或 file:start-end
+      const locationRegex = /^.+:\d+(-\d+)?$/;
+      if (!locationRegex.test(location)) {
+        errors.location = 'Invalid format. Use "file:line" or "file:start-end"';
+      } else {
+        // 检查行号 >= 1
+        const parts = location.split(':');
+        const linePart = parts[parts.length - 1];
+        const lineNumbers = linePart.split('-').map(n => parseInt(n, 10));
+        if (lineNumbers.some(n => n < 1)) {
+          errors.location = 'Line numbers must be >= 1';
+        }
+      }
+    }
+
+    // Description 验证
+    if (description.length > 10000) {
+      errors.description = 'Description is too long (max 10000 characters)';
+    }
+
+    return {
+      isValid: Object.keys(errors).length === 0,
+      errors
+    };
+  }
+
+  /**
+   * 显示错误提示
+   * @param {string} fieldId - 字段 ID (如 "error-title")
+   * @param {string} message - 错误消息
+   */
+  function showError(fieldId, message) {
+    const errorElement = document.getElementById(fieldId);
+    if (errorElement) {
+      errorElement.textContent = message;
+
+      // 给对应的输入框添加 error 类
+      const inputId = fieldId.replace('error-', 'edit-');
+      const inputElement = document.getElementById(inputId);
+      if (inputElement) {
+        inputElement.classList.add('error');
+      }
+    }
+  }
+
+  /**
+   * 清除单个字段错误
+   * @param {string} fieldId - 字段 ID
+   */
+  function clearError(fieldId) {
+    const errorElement = document.getElementById(fieldId);
+    if (errorElement) {
+      errorElement.textContent = '';
+
+      const inputId = fieldId.replace('error-', 'edit-');
+      const inputElement = document.getElementById(inputId);
+      if (inputElement) {
+        inputElement.classList.remove('error');
+      }
+    }
+  }
+
+  /**
+   * 清除所有错误
+   */
+  function clearAllErrors() {
+    ['error-title', 'error-location', 'error-description'].forEach(clearError);
   }
 
   // 显示分组右键菜单
@@ -529,7 +772,20 @@
       </div>
       <div class="context-menu-item" data-action="copyBookmarkInfo">
         <span class="codicon codicon-copy"></span>
-        <span>Copy Info</span>
+        <span>Copy ID</span>
+      </div>
+      <div class="context-menu-item" data-action="copyBookmarkLineInfo">
+        <span class="codicon codicon-location"></span>
+        <span>Copy Line Info</span>
+      </div>
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" data-action="addBookmarkAfter">
+        <span class="codicon codicon-add"></span>
+        <span>Add Bookmark</span>
+      </div>
+      <div class="context-menu-item" data-action="addChildBookmark">
+        <span class="codicon codicon-symbol-namespace"></span>
+        <span>Add Child Bookmark</span>
       </div>
       <div class="context-menu-separator"></div>
       <div class="context-menu-item danger" data-action="deleteBookmark">
@@ -583,16 +839,255 @@
     for (const group of currentData.groups) {
       const bookmark = findBookmarkById(bookmarkId, group.bookmarks || []);
       if (bookmark) {
-        const info = `${bookmark.title}\n${bookmark.location}`;
+        // 复制格式: title(id)
+        const info = `${bookmark.title}(${bookmark.id})`;
         navigator.clipboard.writeText(info).then(() => {
           // 复制成功 - 可以通过 postMessage 通知 extension 显示提示
-          vscode.postMessage({ type: 'showInfo', message: 'Bookmark info copied to clipboard' });
+          vscode.postMessage({ type: 'showInfo', message: 'Bookmark ID copied to clipboard' });
         }).catch(err => {
           console.error('Failed to copy:', err);
         });
         return;
       }
     }
+  }
+
+  // 复制书签行号信息到剪贴板 (只复制 location)
+  function copyBookmarkLineInfo(bookmarkId) {
+    // 在所有分组中查找书签
+    for (const group of currentData.groups) {
+      const bookmark = findBookmarkById(bookmarkId, group.bookmarks || []);
+      if (bookmark) {
+        navigator.clipboard.writeText(bookmark.location).then(() => {
+          // 复制成功
+          vscode.postMessage({ type: 'showInfo', message: 'Bookmark location copied to clipboard' });
+        }).catch(err => {
+          console.error('Failed to copy:', err);
+        });
+        return;
+      }
+    }
+  }
+
+  /**
+   * 在当前书签后添加同级书签
+   * @param {string} bookmarkId - 目标书签 ID
+   * @param {string} groupId - 分组 ID
+   */
+  function addBookmarkAfter(bookmarkId, groupId) {
+    // 保存上下文信息
+    addBookmarkContext = {
+      mode: 'after',
+      targetBookmarkId: bookmarkId,
+      groupId: groupId,
+      parentId: null
+    };
+
+    // 获取目标书签的 parentId
+    for (const group of currentData.groups) {
+      const bookmark = findBookmarkById(bookmarkId, group.bookmarks || []);
+      if (bookmark) {
+        addBookmarkContext.parentId = bookmark.parentId || null;
+        break;
+      }
+    }
+
+    // 请求 Extension 提供当前光标位置
+    vscode.postMessage({
+      type: 'requestCurrentLocation'
+    });
+  }
+
+  /**
+   * 在当前书签下添加子书签
+   * @param {string} bookmarkId - 父书签 ID
+   * @param {string} groupId - 分组 ID
+   */
+  function addChildBookmark(bookmarkId, groupId) {
+    addBookmarkContext = {
+      mode: 'child',
+      targetBookmarkId: bookmarkId,
+      groupId: groupId,
+      parentId: bookmarkId
+    };
+
+    vscode.postMessage({
+      type: 'requestCurrentLocation'
+    });
+  }
+
+  /**
+   * 处理当前光标位置返回
+   * @param {string|null} location - 光标位置
+   * @param {string} error - 错误信息
+   */
+  function handleCurrentLocation(location, error) {
+    if (!addBookmarkContext) {
+      console.error('No addBookmarkContext when receiving location');
+      return;
+    }
+
+    if (error || !location) {
+      vscode.postMessage({
+        type: 'showInfo',
+        message: error || 'No active editor to get location from'
+      });
+      addBookmarkContext = null;
+      return;
+    }
+
+    // 显示添加书签表单
+    showAddBookmarkForm(location, addBookmarkContext);
+  }
+
+  /**
+   * 显示添加书签表单
+   * @param {string} location - 预填的位置
+   * @param {{mode: string, targetBookmarkId: string, groupId: string, parentId: string|null}} context - 添加书签的上下文
+   */
+  function showAddBookmarkForm(location, context) {
+    // 创建表单 HTML
+    const formHtml = `
+      <div class="add-bookmark-panel">
+        <div class="panel-header">
+          <h3>${context.mode === 'child' ? 'Add Child Bookmark' : 'Add Bookmark'}</h3>
+        </div>
+        <div class="bookmark-edit-form">
+          <div class="form-field">
+            <label class="form-label">Title *</label>
+            <input type="text" class="form-input" id="add-title" maxlength="200" autofocus>
+            <div class="form-error" id="error-add-title"></div>
+          </div>
+
+          <div class="form-field">
+            <label class="form-label">Location *</label>
+            <input type="text" class="form-input" id="add-location" value="${escapeHtml(location)}">
+            <div class="form-error" id="error-add-location"></div>
+          </div>
+
+          <div class="form-field">
+            <label class="form-label">Description</label>
+            <textarea class="form-textarea" id="add-description" maxlength="10000"></textarea>
+            <div class="form-error" id="error-add-description"></div>
+          </div>
+
+          <div class="form-actions">
+            <button class="form-btn-save" id="add-bookmark-save">Save</button>
+            <button class="form-btn-cancel" id="add-bookmark-cancel">Cancel</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // 插入表单到容器顶部
+    if (!bookmarksContainer) return;
+    const panel = document.createElement('div');
+    panel.innerHTML = formHtml;
+    const formElement = panel.firstElementChild;
+    if (formElement) {
+      bookmarksContainer.prepend(formElement);
+    }
+
+    // 绑定事件
+    const saveBtn = document.getElementById('add-bookmark-save');
+    const cancelBtn = document.getElementById('add-bookmark-cancel');
+    const titleInput = /** @type {HTMLInputElement|null} */ (document.getElementById('add-title'));
+
+    if (saveBtn) {
+      saveBtn.addEventListener('click', saveAddBookmark);
+    }
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', closeAddBookmarkForm);
+    }
+
+    // 聚焦 title 输入框
+    if (titleInput) {
+      setTimeout(() => titleInput.focus(), 100);
+    }
+  }
+
+  /**
+   * 关闭添加书签表单
+   */
+  function closeAddBookmarkForm() {
+    const panel = document.querySelector('.add-bookmark-panel');
+    if (panel) {
+      panel.remove();
+    }
+    addBookmarkContext = null;
+  }
+
+  /**
+   * 保存添加的书签
+   */
+  function saveAddBookmark() {
+    const titleEl = /** @type {HTMLInputElement|null} */ (document.getElementById('add-title'));
+    const locationEl = /** @type {HTMLInputElement|null} */ (document.getElementById('add-location'));
+    const descriptionEl = /** @type {HTMLTextAreaElement|null} */ (document.getElementById('add-description'));
+
+    if (!titleEl || !locationEl || !descriptionEl) {
+      console.error('Form elements not found');
+      return;
+    }
+
+    const title = titleEl.value.trim();
+    const location = locationEl.value.trim();
+    const description = descriptionEl.value.trim();
+
+    // 清除之前的错误提示
+    document.querySelectorAll('.add-bookmark-panel .form-error').forEach(el => {
+      el.textContent = '';
+      const htmlEl = /** @type {HTMLElement} */ (el);
+      htmlEl.style.display = 'none';
+    });
+
+    // 验证
+    const validation = validateInputs(title, location, description);
+    if (!validation.isValid) {
+      // 显示错误
+      for (const [field, error] of Object.entries(validation.errors)) {
+        const errorEl = document.getElementById(`error-add-${field}`);
+        if (errorEl) {
+          errorEl.textContent = error;
+          const htmlErrorEl = /** @type {HTMLElement} */ (errorEl);
+          htmlErrorEl.style.display = 'block';
+        }
+      }
+      return;
+    }
+
+    if (!addBookmarkContext) {
+      console.error('No addBookmarkContext when saving');
+      return;
+    }
+
+    // 禁用按钮防止重复提交
+    const saveBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById('add-bookmark-save'));
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+    }
+
+    // 发送添加请求
+    const messageType = addBookmarkContext.mode === 'after' ? 'addBookmark' : 'addChildBookmark';
+
+    vscode.postMessage({
+      type: messageType,
+      payload: {
+        groupId: addBookmarkContext.groupId,
+        targetBookmarkId: addBookmarkContext.targetBookmarkId,
+        parentId: addBookmarkContext.parentId,
+        bookmark: {
+          title,
+          location,
+          description: description || '',
+          category: 'note'
+        }
+      }
+    });
+
+    // 清理并关闭
+    closeAddBookmarkForm();
   }
 
   // 绑定 context menu 动作
@@ -612,6 +1107,16 @@
 
     switch (action) {
       case 'editBookmark':
+        // 找到对应的编辑按钮并高亮提示用户点击
+        const editBtn = document.querySelector(
+          `.bookmark-edit-btn[data-bookmark-id="${contextMenuTarget.id}"]`
+        );
+        if (editBtn) {
+          // 添加高亮动画提示
+          editBtn.classList.add('edit-hint');
+          setTimeout(() => editBtn.classList.remove('edit-hint'), 2000);
+        }
+        // 通知扩展显示提示消息
         vscode.postMessage({ type: 'editBookmark', bookmarkId: contextMenuTarget.id });
         break;
       case 'deleteBookmark':
@@ -619,6 +1124,19 @@
         break;
       case 'copyBookmarkInfo':
         copyBookmarkInfo(contextMenuTarget.id);
+        break;
+      case 'copyBookmarkLineInfo':
+        copyBookmarkLineInfo(contextMenuTarget.id);
+        break;
+      case 'addBookmarkAfter':
+        if (contextMenuTarget.type === 'bookmark') {
+          addBookmarkAfter(contextMenuTarget.id, contextMenuTarget.groupId);
+        }
+        break;
+      case 'addChildBookmark':
+        if (contextMenuTarget.type === 'bookmark') {
+          addChildBookmark(contextMenuTarget.id, contextMenuTarget.groupId);
+        }
         break;
       case 'editGroup':
         vscode.postMessage({ type: 'editGroup', groupId: contextMenuTarget.id });

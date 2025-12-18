@@ -208,16 +208,16 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
         const document = await vscode.workspace.openTextDocument(uri);
         const editor = await vscode.window.showTextDocument(document);
 
-        // Go to the start line (0-indexed)
+        // 跳转到目标行并选中范围
         const startLine = Math.max(0, parsed.startLine - 1);
         const endLine = Math.max(0, parsed.endLine - 1);
 
         const range = new vscode.Range(
           new vscode.Position(startLine, 0),
-          new vscode.Position(endLine, 0)
+          new vscode.Position(endLine, document.lineAt(endLine).text.length)
         );
 
-        editor.selection = new vscode.Selection(range.start, range.start);
+        editor.selection = new vscode.Selection(range.start, range.end);
         editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
       } catch (error) {
         vscode.window.showErrorMessage(`Failed to jump to bookmark: ${error}`);
@@ -349,11 +349,11 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
         return;
       }
 
-      // Get bookmark description
-      const description = await vscode.window.showInputBox({
-        prompt: 'Enter bookmark description',
-        placeHolder: 'Describe what this code does...'
-      });
+      // Get bookmark description (use editor for multi-line input)
+      const description = await editTextInEditor(
+        '',
+        'Enter bookmark description'
+      );
 
       if (!description) {
         return;
@@ -404,10 +404,11 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
         return;
       }
 
-      const description = await vscode.window.showInputBox({
-        prompt: 'Enter group description (optional)',
-        placeHolder: 'Describe the purpose of this group...'
-      });
+      // Use editor for multi-line description
+      const description = await editTextInEditor(
+        '',
+        'Enter group description (optional, close tab to skip)'
+      );
 
       bookmarkStore.createGroup(name, description || undefined, undefined, 'user');
       vscode.window.showInformationMessage(`Group "${name}" created`);
@@ -533,7 +534,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
     })
   );
 
-  // Edit bookmark command
+  // Edit bookmark command - 改为提示用户在 sidebar 中双击编辑
   context.subscriptions.push(
     vscode.commands.registerCommand('aiBookmarks.editBookmark', async (item: unknown) => {
       if (!bookmarkStore) {
@@ -551,7 +552,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
       // Choose what to edit
       const editOptions = [
         { label: 'Title', description: bookmark.title },
-        { label: 'Description', description: bookmark.description.substring(0, 50) + '...' },
+        { label: 'Description (Double-click in sidebar)', description: bookmark.description.substring(0, 50) + '...' },
         { label: 'Category', description: bookmark.category || 'None' }
       ];
 
@@ -575,14 +576,15 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
           }
           break;
         }
-        case 'Description': {
-          const newDesc = await vscode.window.showInputBox({
-            prompt: 'Enter new description',
-            value: bookmark.description
-          });
-          if (newDesc) {
-            bookmarkStore.updateBookmark(bookmark.id, { description: newDesc });
-            vscode.window.showInformationMessage('Description updated');
+        case 'Description (Double-click in sidebar)': {
+          // 提示用户在 sidebar 中双击 description 编辑
+          vscode.window.showInformationMessage(
+            'Please double-click the description in the AI Bookmarks sidebar to edit it',
+            'Got it'
+          );
+          // 通知 sidebar 高亮这个书签
+          if (sidebarProvider) {
+            sidebarProvider.revealBookmark(bookmark.id);
           }
           break;
         }
@@ -759,10 +761,10 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
       }
 
       if (selected.label === 'Description' || selected.label === 'Both') {
-        newDescription = await vscode.window.showInputBox({
-          prompt: 'Enter new group description',
-          value: group.description || ''
-        });
+        newDescription = await editTextInEditor(
+          group.description || '',
+          'Edit group description'
+        );
       }
 
       const updates: { name?: string; description?: string } = {};
@@ -880,6 +882,21 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
     })
   );
 
+  // Copy bookmark line info command (location only)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('aiBookmarks.copyBookmarkLineInfo', async (item: unknown) => {
+      const bookmarkItem = item as { type: string; bookmark?: Bookmark };
+      if (bookmarkItem?.type !== 'bookmark' || !bookmarkItem.bookmark) {
+        vscode.window.showErrorMessage('Please select a bookmark to copy');
+        return;
+      }
+
+      const bookmark = bookmarkItem.bookmark;
+      await vscode.env.clipboard.writeText(bookmark.location);
+      vscode.window.showInformationMessage('Bookmark location copied');
+    })
+  );
+
   // Copy group info command
   context.subscriptions.push(
     vscode.commands.registerCommand('aiBookmarks.copyGroupInfo', async (item: unknown) => {
@@ -939,11 +956,11 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
         return;
       }
 
-      // Get bookmark description
-      const description = await vscode.window.showInputBox({
-        prompt: 'Enter bookmark description',
-        placeHolder: 'Describe what this code does...'
-      });
+      // Get bookmark description (use editor for multi-line input)
+      const description = await editTextInEditor(
+        '',
+        `Enter child bookmark description (parent: "${parentBookmark.title}")`
+      );
 
       if (!description) {
         return;
@@ -988,6 +1005,81 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
       }
     })
   );
+}
+
+/**
+ * Open a temporary editor for multi-line text editing with save confirmation
+ * @param initialContent Initial text content
+ * @param title Editor title hint
+ * @returns Edited text or undefined if cancelled
+ */
+async function editTextInEditor(initialContent: string, title: string): Promise<string | undefined> {
+  // Create a temporary untitled document with instructions
+  const instructions = `<!-- ${title} -->\n<!-- Edit the content below. Close this tab when done to save. -->\n<!-- To cancel, close without making changes. -->\n\n${initialContent}`;
+
+  const document = await vscode.workspace.openTextDocument({
+    content: instructions,
+    language: 'markdown' // Support markdown formatting
+  });
+
+  // Open the document in editor
+  const editor = await vscode.window.showTextDocument(document, {
+    preview: false, // Use full editor, not preview
+    viewColumn: vscode.ViewColumn.Beside
+  });
+
+  // Position cursor at the content area (skip instructions)
+  const contentStartLine = 4; // After instruction comments
+  editor.selection = new vscode.Selection(
+    new vscode.Position(contentStartLine, 0),
+    new vscode.Position(contentStartLine, 0)
+  );
+
+  // Wait for user to close the editor
+  return new Promise((resolve) => {
+    let isResolved = false;
+
+    const disposable = vscode.workspace.onDidCloseTextDocument(async (closedDoc) => {
+      if (closedDoc === document && !isResolved) {
+        isResolved = true;
+        disposable.dispose();
+
+        // Get the final content (remove instruction comments)
+        const lines = closedDoc.getText().split('\n');
+        const contentLines = lines.slice(contentStartLine); // Skip instruction lines
+        const finalContent = contentLines.join('\n').trim();
+
+        // Check if content changed
+        const contentChanged = finalContent !== initialContent;
+
+        if (!contentChanged) {
+          // No change, treat as cancel
+          resolve(undefined);
+          return;
+        }
+
+        // Confirm save if content changed
+        const action = await vscode.window.showInformationMessage(
+          'Save changes?',
+          { modal: true },
+          'Save',
+          'Discard'
+        );
+
+        if (action === 'Save') {
+          resolve(finalContent);
+        } else {
+          resolve(undefined);
+        }
+      }
+    });
+
+    // Show info message with instructions
+    vscode.window.showInformationMessage(
+      `📝 ${title} - Edit in the opened tab, then close it to continue`,
+      { modal: false }
+    );
+  });
 }
 
 // Helper function to navigate between bookmarks

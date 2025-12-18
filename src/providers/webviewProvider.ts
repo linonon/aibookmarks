@@ -176,7 +176,7 @@ export class BookmarkDetailProvider {
       const document = await vscode.workspace.openTextDocument(uri);
       const editor = await vscode.window.showTextDocument(document, vscode.ViewColumn.One);
 
-      // 跳转到指定行并选中
+      // 跳转到指定行并选中范围
       const range = new vscode.Range(
         parsed.startLine - 1,
         0,

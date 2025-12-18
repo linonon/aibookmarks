@@ -493,7 +493,7 @@ body {
 
 .bookmark-container[data-depth="1"] > .bookmark-item {
   background-color: rgba(139, 92, 246, 0.08);
-  padding-left: 16px;
+  padding-left: 8px;
 }
 
 .bookmark-container[data-depth="1"]:hover {
@@ -522,7 +522,7 @@ body {
 
 .bookmark-container[data-depth="2"] > .bookmark-item {
   background-color: rgba(6, 182, 212, 0.12);
-  padding-left: 32px;
+  padding-left: 16px;
 }
 
 .bookmark-container[data-depth="2"]:hover {
@@ -551,7 +551,7 @@ body {
 
 .bookmark-container[data-depth="3"] > .bookmark-item {
   background-color: rgba(34, 197, 94, 0.16);
-  padding-left: 48px;
+  padding-left: 24px;
 }
 
 .bookmark-container[data-depth="3"]:hover {
@@ -580,7 +580,7 @@ body {
 
 .bookmark-container[data-depth="4"] > .bookmark-item {
   background-color: rgba(234, 179, 8, 0.08);
-  padding-left: 64px;
+  padding-left: 32px;
 }
 
 .bookmark-container[data-depth="4"]:hover {
@@ -609,7 +609,7 @@ body {
 
 .bookmark-container[data-depth="5"] > .bookmark-item {
   background-color: rgba(251, 146, 60, 0.08);
-  padding-left: 80px;
+  padding-left: 40px;
 }
 
 .bookmark-container[data-depth="5"]:hover {
@@ -638,7 +638,7 @@ body {
 
 .bookmark-container[data-depth="6"] > .bookmark-item {
   background-color: rgba(239, 68, 68, 0.08);
-  padding-left: 96px;
+  padding-left: 48px;
 }
 
 .bookmark-container[data-depth="6"]:hover {
@@ -667,7 +667,7 @@ body {
 
 .bookmark-container[data-depth="7"] > .bookmark-item {
   background-color: rgba(236, 72, 153, 0.08);
-  padding-left: 112px;
+  padding-left: 56px;
 }
 
 .bookmark-container[data-depth="7"]:hover {
@@ -700,7 +700,7 @@ body {
 .bookmark-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0px;
   white-space: nowrap;
   overflow: hidden;
   min-width: 0;
@@ -733,15 +733,200 @@ body {
   flex-shrink: 0;
 }
 
+/* Description wrapper - 包含按钮容器和 description */
+.bookmark-description-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;                  /* 增加间距, 给描述和按钮更多呼吸空间 */
+  margin-top: 2px;
+}
+
+/* 按钮容器 - 横向排列在左侧 */
+.bookmark-action-buttons {
+  display: flex;
+  flex-direction: row;       /* 改为横向排列 */
+  gap: 4px;                  /* 按钮之间的间距 */
+  flex-shrink: 0;            /* 不压缩 */
+  order: 0;                  /* 排在描述之前(左侧) */
+  align-items: center;       /* 垂直居中对齐 */
+  margin-left: 0px;         /* 左侧缩进，形成层级视觉效果 */
+}
+
+/* 展开/折叠按钮 */
+.bookmark-toggle-btn {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--vscode-foreground);
+  opacity: 0.5;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.bookmark-toggle-btn:hover {
+  opacity: 1;
+  background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+/* 编辑/保存按钮 */
+.bookmark-edit-btn {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--vscode-foreground);
+  opacity: 0.5;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.bookmark-edit-btn:hover {
+  opacity: 1;
+  background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+/* 保存模式 - 绿色勾 */
+.bookmark-edit-btn.save-mode {
+  color: var(--vscode-testing-iconPassed);
+  opacity: 1;
+}
+
+.bookmark-edit-btn.save-mode:hover {
+  background-color: rgba(0, 255, 0, 0.1);
+}
+
+/* 取消按钮 - 红色叉 */
+.bookmark-cancel-btn {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--vscode-testing-iconFailed);
+  opacity: 0.8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.bookmark-cancel-btn:hover {
+  opacity: 1;
+  background-color: rgba(255, 0, 0, 0.1);
+}
+
+/* Icon Drawing with CSS */
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  position: relative;
+}
+
+/* Expand icon - right arrow ▶ */
+.icon-expand::before {
+  content: '';
+  display: block;
+  width: 0;
+  height: 0;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  border-left: 5px solid currentColor;
+  margin-left: 1px;
+}
+
+/* Collapse icon - down arrow ▼ */
+.icon-collapse::before {
+  content: '';
+  display: block;
+  width: 0;
+  height: 0;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-top: 5px solid currentColor;
+  margin-top: 1px;
+}
+
+/* Edit icon - small square with pencil */
+.icon-edit::before {
+  content: '';
+  display: block;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid currentColor;
+  border-radius: 1px;
+}
+
+/* Save icon - checkmark */
+.icon-save::before {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 7px;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+  margin-left: -1px;
+}
+
+/* Cancel icon - X cross */
+.icon-cancel {
+  position: relative;
+  width: 10px;
+  height: 10px;
+}
+
+.icon-cancel::before,
+.icon-cancel::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 1.5px;
+  background: currentColor;
+  top: 50%;
+  left: 50%;
+}
+
+.icon-cancel::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.icon-cancel::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
 .bookmark-description {
+  flex: 1;                   /* 占用剩余空间 */
+  order: 1;                  /* 排在按钮之后(右侧) */
   font-size: 11px;
   color: #ffffff;
-  opacity: 0.9;
-  cursor: pointer;
+  opacity: 0.7;
+  cursor: default;
   transition: all 0.2s ease;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  
+
   /* 默认显示1行 */
   display: -webkit-box;
   -webkit-line-clamp: 1;
@@ -750,7 +935,7 @@ body {
 }
 
 .bookmark-description:hover {
-  opacity: 1;
+  opacity: 0.85;
   background-color: rgba(255, 255, 255, 0.05);
   border-radius: 3px;
   padding: 2px 4px;
@@ -782,32 +967,19 @@ body {
 
 /* 旧的层级缩进已移至上方的极简层级设计中 */
 
-/* Expandable Bookmark (has children) */
-.bookmark-container.has-children .bookmark-chevron {
-  display: flex;
-}
-
-.bookmark-container.has-children .bookmark-item {
-  padding-left: 24px;  /* 给 chevron 留出空间 */
-}
-
+/* Expandable Bookmark (has children) - 箭头在 title 前面 */
 .bookmark-chevron {
-  display: none;
-  position: absolute;
-  left: 4px;
-  top: 50%;
-  transform: translateY(-50%) rotate(90deg);  /* 垂直居中 + 向下旋转 */
-  width: 16px;
-  height: 16px;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-right: 2px;  /* 减小间距，让 title 文字更接近箭头 */
+  display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  line-height: 1;
   color: var(--vscode-foreground);
-  cursor: pointer;
-  transition: transform 0.2s ease, opacity 0.2s ease;
-  z-index: 10;
   opacity: 0.7;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
   user-select: none;
 }
 
@@ -815,8 +987,28 @@ body {
   opacity: 1;
 }
 
-.bookmark-container.collapsed .bookmark-chevron {
-  transform: translateY(-50%) rotate(0deg);  /* 折叠时向右 */
+/* title 位置的箭头比 description 的按钮大 */
+.bookmark-chevron .icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  position: relative;
+}
+
+/* title 箭头的展开图标 - 向右 ▶ (比 description 的大) */
+.bookmark-chevron .icon-expand::before {
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid currentColor;
+}
+
+/* title 箭头的折叠图标 - 向下 ▼ (比 description 的大) */
+.bookmark-chevron .icon-collapse::before {
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 6px solid currentColor;
 }
 
 /* Children List - 嵌套容器内的子书签列表 */
@@ -1019,6 +1211,7 @@ body {
 .description-edit-textarea {
   width: 100%;
   min-height: 60px;
+  max-height: 400px;  /* 添加最大高度限制 */
   padding: 6px 8px;
   background: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
@@ -1026,43 +1219,14 @@ body {
   border-radius: 3px;
   font-size: 11px;
   font-family: var(--vscode-font-family);
-  resize: vertical;
+  resize: none;  /* 改为 none，禁用手动拉伸，完全自适应 */
   box-sizing: border-box;
+  overflow-y: auto;  /* 超过最大高度时显示滚动条 */
 }
 
 .description-edit-textarea:focus {
   outline: 1px solid var(--vscode-focusBorder);
   border-color: var(--vscode-focusBorder);
-}
-
-.description-edit-buttons {
-  display: flex;
-  gap: 6px;
-  margin-top: 6px;
-  justify-content: flex-end;
-}
-
-.description-edit-btn {
-  padding: 4px 10px;
-  font-size: 11px;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.description-edit-btn:hover {
-  opacity: 0.8;
-}
-
-.description-edit-save {
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-}
-
-.description-edit-cancel {
-  background: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
 }
 
 /* 编辑模式时禁用展开/折叠样式 */
@@ -1071,7 +1235,170 @@ body {
   display: block;
 }
 
+/* 编辑提示动画 */
+@keyframes edit-hint {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: var(--vscode-editor-findMatchHighlightBackground); }
+}
+
+.bookmark-description.edit-hint,
+.bookmark-edit-btn.edit-hint {
+  animation: edit-hint 0.6s ease-in-out 3;
+}
+
 /* Utility */
 .hidden {
   display: none !important;
+}
+
+/* ==================== 全字段编辑表单样式 ==================== */
+
+/* 编辑按钮 - 在 header 最右侧 */
+.bookmark-header-edit-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--vscode-foreground);
+  opacity: 0.5;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+}
+
+.bookmark-header-edit-btn:hover {
+  opacity: 1;
+  background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+/* 编辑表单容器 */
+.bookmark-edit-form {
+  padding: 12px;
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+/* 表单字段 */
+.form-field {
+  margin-bottom: 8px;
+}
+
+.form-field:last-of-type {
+  margin-bottom: 12px;
+}
+
+.form-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin-bottom: 3px;
+  opacity: 0.8;
+}
+
+/* 输入框 */
+.form-input {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: var(--vscode-font-family);
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+.form-input.error {
+  border-color: var(--vscode-inputValidation-errorBorder);
+  background: var(--vscode-inputValidation-errorBackground);
+}
+
+/* Textarea */
+.form-textarea {
+  width: 100%;
+  min-height: 80px;
+  max-height: 300px;
+  padding: 6px 8px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: var(--vscode-font-family);
+  resize: vertical;
+  outline: none;
+}
+
+.form-textarea:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+.form-textarea.error {
+  border-color: var(--vscode-inputValidation-errorBorder);
+  background: var(--vscode-inputValidation-errorBackground);
+}
+
+/* 错误提示 */
+.form-error {
+  font-size: 10px;
+  color: var(--vscode-inputValidation-errorForeground);
+  margin-top: 2px;
+  min-height: 14px;
+}
+
+/* 按钮容器 */
+.form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* 保存按钮 */
+.form-btn-save {
+  padding: 6px 16px;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.form-btn-save:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.form-btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 取消按钮 */
+.form-btn-cancel {
+  padding: 6px 16px;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: none;
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.form-btn-cancel:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
 }

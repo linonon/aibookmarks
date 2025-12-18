@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as path from 'path';
 import { BookmarkStoreManager } from '../store/bookmarkStore';
 import { BookmarkGroup, Bookmark } from '../store/types';
 import { parseLocation, toAbsolutePath } from '../utils';
@@ -168,6 +169,9 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
     expanded?: boolean;
     query?: string;
     message?: string;
+    description?: string;
+    updates?: { title: string; location: string; description: string };
+    payload?: any;
   }): Promise<void> {
     switch (message.type) {
       case 'jumpToBookmark':
@@ -181,10 +185,10 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
         break;
 
       case 'toggleBookmark':
-        // 展开/折叠书签子项
-        if (message.bookmarkId) {
-          this.bookmarkStore.toggleBookmarkCollapsed(message.bookmarkId);
-        }
+        // 展开/折叠书签子项 (由前端管理状态, 不需要持久化)
+        // if (message.bookmarkId) {
+        //   this.bookmarkStore.toggleBookmarkCollapsed(message.bookmarkId);
+        // }
         break;
 
       case 'searchBookmarks':
@@ -290,6 +294,28 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
         }
         break;
 
+      case 'updateBookmarkFull':
+        if (message.bookmarkId && message.updates) {
+          await this.handleUpdateBookmarkFull(message.bookmarkId, message.updates);
+        }
+        break;
+
+      case 'requestCurrentLocation':
+        this.handleRequestCurrentLocation();
+        break;
+
+      case 'addBookmark':
+        if (message.payload) {
+          await this.handleAddBookmark(message.payload);
+        }
+        break;
+
+      case 'addChildBookmark':
+        if (message.payload) {
+          await this.handleAddChildBookmark(message.payload);
+        }
+        break;
+
       default:
         console.warn(`Unknown message type: ${message.type}`);
     }
@@ -315,7 +341,7 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
       const document = await vscode.workspace.openTextDocument(uri);
       const editor = await vscode.window.showTextDocument(document, vscode.ViewColumn.One);
 
-      // 跳转到指定行并选中
+      // 跳转到指定行并选中范围
       const range = new vscode.Range(
         parsed.startLine - 1,
         0,
@@ -327,6 +353,132 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
       editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to jump to bookmark: ${error}`);
+    }
+  }
+
+  /**
+   * 处理获取当前光标位置的请求
+   */
+  private handleRequestCurrentLocation(): void {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      this._view?.webview.postMessage({
+        type: 'currentLocation',
+        location: null,
+        error: 'No active editor'
+      });
+      return;
+    }
+
+    const document = editor.document;
+    const position = editor.selection.active;
+
+    // 获取相对路径
+    const relativePath = path.relative(this.workspaceRoot, document.uri.fsPath);
+
+    // 生成 location 字符串 (行号从 1 开始, VSCode API 是 0-based, 所以需要 +1)
+    const location = `${relativePath}:${position.line + 1}`;
+
+    this._view?.webview.postMessage({
+      type: 'currentLocation',
+      location: location
+    });
+  }
+
+  /**
+   * 处理添加书签 (在目标书签后添加同级书签)
+   */
+  private async handleAddBookmark(payload: {
+    groupId: string;
+    targetBookmarkId: string;
+    parentId: string | null;
+    bookmark: {
+      title: string;
+      location: string;
+      description: string;
+      category: string;
+    };
+  }): Promise<void> {
+    try {
+      // 1. 查找目标书签
+      const targetResult = this.bookmarkStore.getBookmark(payload.targetBookmarkId);
+      if (!targetResult) {
+        vscode.window.showErrorMessage('Target bookmark not found');
+        return;
+      }
+
+      const { bookmark: targetBookmark, group } = targetResult;
+
+      // 2. 计算新书签的 order (在目标书签后面)
+      const newOrder = targetBookmark.order + 1;
+
+      // 3. 获取所有同级书签 (相同 parentId)
+      const siblings = group.bookmarks.filter(
+        b => b.parentId === targetBookmark.parentId
+      );
+
+      // 4. 调整后续书签的 order (+1)
+      siblings.forEach(sibling => {
+        if (sibling.order >= newOrder && sibling.id !== payload.targetBookmarkId) {
+          sibling.order += 1;
+        }
+      });
+
+      // 5. 添加新书签
+      const newBookmarkId = this.bookmarkStore.addBookmark(
+        payload.groupId,
+        payload.bookmark.location,
+        payload.bookmark.title,
+        payload.bookmark.description,
+        {
+          parentId: payload.parentId || undefined,
+          order: newOrder,
+          category: payload.bookmark.category as any
+        }
+      );
+
+      if (newBookmarkId) {
+        vscode.window.showInformationMessage('Bookmark added successfully');
+      } else {
+        vscode.window.showErrorMessage('Failed to add bookmark');
+      }
+
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to add bookmark: ${error}`);
+    }
+  }
+
+  /**
+   * 处理添加子书签 (在目标书签下添加子书签)
+   */
+  private async handleAddChildBookmark(payload: {
+    targetBookmarkId: string;
+    bookmark: {
+      title: string;
+      location: string;
+      description: string;
+      category: string;
+    };
+  }): Promise<void> {
+    try {
+      const newBookmarkId = this.bookmarkStore.addChildBookmark(
+        payload.targetBookmarkId,
+        payload.bookmark.location,
+        payload.bookmark.title,
+        payload.bookmark.description,
+        {
+          category: payload.bookmark.category as any
+        }
+      );
+
+      if (newBookmarkId) {
+        vscode.window.showInformationMessage('Child bookmark added successfully');
+      } else {
+        vscode.window.showErrorMessage('Failed to add child bookmark');
+      }
+
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to add child bookmark: ${error}`);
     }
   }
 
@@ -362,6 +514,75 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
         query,
         results
       }
+    });
+  }
+
+  /**
+   * 处理全字段书签更新 (带后端验证)
+   */
+  private async handleUpdateBookmarkFull(
+    bookmarkId: string,
+    updates: { title: string; location: string; description: string }
+  ): Promise<void> {
+    try {
+      // 1. 解析 location 格式
+      const parsed = parseLocation(updates.location);
+      if (!parsed) {
+        this.sendValidationError('location', 'Invalid format. Use "file:line" or "file:start-end"');
+        return;
+      }
+
+      // 2. 转换为绝对路径
+      const absolutePath = toAbsolutePath(parsed.filePath, this.workspaceRoot);
+
+      // 3. 检查文件存在性
+      try {
+        const stat = await vscode.workspace.fs.stat(vscode.Uri.file(absolutePath));
+
+        // 4. 验证是文件不是目录
+        if (stat.type !== vscode.FileType.File) {
+          this.sendValidationError('location', 'Path is a directory, not a file');
+          return;
+        }
+      } catch {
+        this.sendValidationError('location', 'File does not exist');
+        return;
+      }
+
+      // 5. 检查行号范围
+      const document = await vscode.workspace.openTextDocument(absolutePath);
+      const lineCount = document.lineCount;
+
+      if (parsed.startLine > lineCount) {
+        this.sendValidationError('location', `Line ${parsed.startLine} exceeds file line count (${lineCount})`);
+        return;
+      }
+
+      if (parsed.isRange && parsed.endLine > lineCount) {
+        this.sendValidationError('location', `Line ${parsed.endLine} exceeds file line count (${lineCount})`);
+        return;
+      }
+
+      // 6. 执行更新
+      this.bookmarkStore.updateBookmark(bookmarkId, updates);
+      vscode.window.showInformationMessage('Bookmark updated successfully');
+
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to update bookmark: ${error}`);
+    }
+  }
+
+  /**
+   * 发送验证错误消息到 Webview
+   */
+  private sendValidationError(field: string, error: string): void {
+    if (!this._view) {
+      return;
+    }
+    this._view.webview.postMessage({
+      type: 'validationError',
+      field: `error-${field}`,
+      error: error
     });
   }
 
