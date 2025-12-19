@@ -772,11 +772,15 @@
       </div>
       <div class="context-menu-item" data-action="copyBookmarkInfo">
         <span class="codicon codicon-copy"></span>
-        <span>Copy ID</span>
+        <span>Copy Info</span>
       </div>
-      <div class="context-menu-item" data-action="copyBookmarkLineInfo">
-        <span class="codicon codicon-location"></span>
-        <span>Copy Line Info</span>
+      <div class="context-menu-item" data-action="copyRelativePath">
+        <span class="codicon codicon-file"></span>
+        <span>Copy Relative Path</span>
+      </div>
+      <div class="context-menu-item" data-action="copyAbsolutePath">
+        <span class="codicon codicon-file-directory"></span>
+        <span>Copy Absolute Path</span>
       </div>
       <div class="context-menu-separator"></div>
       <div class="context-menu-item" data-action="addBookmarkAfter">
@@ -852,17 +856,35 @@
     }
   }
 
-  // 复制书签行号信息到剪贴板 (只复制 location)
-  function copyBookmarkLineInfo(bookmarkId) {
+  // 复制相对路径到剪贴板
+  function copyRelativePath(bookmarkId) {
     // 在所有分组中查找书签
     for (const group of currentData.groups) {
       const bookmark = findBookmarkById(bookmarkId, group.bookmarks || []);
       if (bookmark) {
-        navigator.clipboard.writeText(bookmark.location).then(() => {
-          // 复制成功
-          vscode.postMessage({ type: 'showInfo', message: 'Bookmark location copied to clipboard' });
+        // 提取文件路径 (去掉 :line 或 :start-end)
+        const filePath = bookmark.location.split(':')[0];
+        navigator.clipboard.writeText(filePath).then(() => {
+          vscode.postMessage({ type: 'showInfo', message: 'Relative path copied to clipboard' });
         }).catch(err => {
           console.error('Failed to copy:', err);
+        });
+        return;
+      }
+    }
+  }
+
+  // 复制绝对路径到剪贴板
+  function copyAbsolutePath(bookmarkId) {
+    // 在所有分组中查找书签
+    for (const group of currentData.groups) {
+      const bookmark = findBookmarkById(bookmarkId, group.bookmarks || []);
+      if (bookmark) {
+        // 提取文件路径并通知扩展复制绝对路径
+        // 因为 webview 无法直接访问工作区路径,需要通过扩展来处理
+        vscode.postMessage({
+          type: 'copyAbsolutePath',
+          location: bookmark.location
         });
         return;
       }
@@ -1125,8 +1147,11 @@
       case 'copyBookmarkInfo':
         copyBookmarkInfo(contextMenuTarget.id);
         break;
-      case 'copyBookmarkLineInfo':
-        copyBookmarkLineInfo(contextMenuTarget.id);
+      case 'copyRelativePath':
+        copyRelativePath(contextMenuTarget.id);
+        break;
+      case 'copyAbsolutePath':
+        copyAbsolutePath(contextMenuTarget.id);
         break;
       case 'addBookmarkAfter':
         if (contextMenuTarget.type === 'bookmark') {

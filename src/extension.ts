@@ -876,21 +876,6 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
     })
   );
 
-  // Copy bookmark line info command (location only)
-  context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.copyBookmarkLineInfo', async (item: unknown) => {
-      const bookmarkItem = item as { type: string; bookmark?: Bookmark };
-      if (bookmarkItem?.type !== 'bookmark' || !bookmarkItem.bookmark) {
-        vscode.window.showErrorMessage('Please select a bookmark to copy');
-        return;
-      }
-
-      const bookmark = bookmarkItem.bookmark;
-      await vscode.env.clipboard.writeText(bookmark.location);
-      vscode.window.showInformationMessage('Bookmark location copied');
-    })
-  );
-
   // Copy group info command
   context.subscriptions.push(
     vscode.commands.registerCommand('aiBookmarks.copyGroupInfo', async (item: unknown) => {
@@ -903,6 +888,49 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
       const infoText = `[Bookmark Group] ${groupItem.group.name}`;
       await vscode.env.clipboard.writeText(infoText);
       vscode.window.showInformationMessage('Group info copied');
+    })
+  );
+
+  // Copy relative path command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('aiBookmarks.copyRelativePath', async (item: unknown) => {
+      const bookmarkItem = item as { type: string; bookmark?: Bookmark };
+      if (bookmarkItem?.type !== 'bookmark' || !bookmarkItem.bookmark) {
+        vscode.window.showErrorMessage('Please select a bookmark to copy');
+        return;
+      }
+
+      const bookmark = bookmarkItem.bookmark;
+      // Extract file path from location (remove :line or :start-end)
+      const filePath = bookmark.location.split(':')[0];
+      await vscode.env.clipboard.writeText(filePath);
+      vscode.window.showInformationMessage('Relative path copied');
+    })
+  );
+
+  // Copy absolute path command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('aiBookmarks.copyAbsolutePath', async (item: unknown) => {
+      const bookmarkItem = item as { type: string; bookmark?: Bookmark };
+      if (bookmarkItem?.type !== 'bookmark' || !bookmarkItem.bookmark) {
+        vscode.window.showErrorMessage('Please select a bookmark to copy');
+        return;
+      }
+
+      const bookmark = bookmarkItem.bookmark;
+      // Extract file path from location (remove :line or :start-end)
+      const relativePath = bookmark.location.split(':')[0];
+
+      // Get workspace folder and construct absolute path
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        vscode.window.showErrorMessage('No workspace folder found');
+        return;
+      }
+
+      const absolutePath = vscode.Uri.joinPath(workspaceFolder.uri, relativePath).fsPath;
+      await vscode.env.clipboard.writeText(absolutePath);
+      vscode.window.showInformationMessage('Absolute path copied');
     })
   );
 

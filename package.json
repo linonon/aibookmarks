@@ -147,6 +147,16 @@
         "icon": "$(copy)"
       },
       {
+        "command": "aiBookmarks.copyRelativePath",
+        "title": "Copy Relative Path",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "aiBookmarks.copyAbsolutePath",
+        "title": "Copy Absolute Path",
+        "icon": "$(copy)"
+      },
+      {
         "command": "aiBookmarks.openBookmarkDetail",
         "title": "Open Bookmark Detail",
         "icon": "$(info)"
@@ -237,6 +247,14 @@
         },
         {
           "command": "aiBookmarks.copyBookmarkInfo",
+          "when": "view == aiBookmarks && viewItem =~ /^bookmark/"
+        },
+        {
+          "command": "aiBookmarks.copyRelativePath",
+          "when": "view == aiBookmarks && viewItem =~ /^bookmark/"
+        },
+        {
+          "command": "aiBookmarks.copyAbsolutePath",
           "when": "view == aiBookmarks && viewItem =~ /^bookmark/"
         },
         {

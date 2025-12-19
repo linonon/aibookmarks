@@ -170,6 +170,7 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
     query?: string;
     message?: string;
     description?: string;
+    location?: string;
     updates?: { title: string; location: string; description: string };
     payload?: any;
   }): Promise<void> {
@@ -278,6 +279,19 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
       case 'showInfo':
         if (message.message) {
           vscode.window.showInformationMessage(message.message as string);
+        }
+        break;
+
+      case 'copyAbsolutePath':
+        if (message.location) {
+          const location = message.location as string;
+          const relativePath = location.split(':')[0];
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (workspaceFolder) {
+            const absolutePath = vscode.Uri.joinPath(workspaceFolder.uri, relativePath).fsPath;
+            vscode.env.clipboard.writeText(absolutePath);
+            vscode.window.showInformationMessage('Absolute path copied to clipboard');
+          }
         }
         break;
 
