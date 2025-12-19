@@ -346,14 +346,10 @@
           "enum": [
             "entry-point",
             "core-logic",
-            "todo",
-            "bug",
-            "optimization",
-            "explanation",
-            "warning",
-            "reference"
+            "issue",
+            "note"
           ],
-          "default": "explanation",
+          "default": "note",
           "description": "Default category for new bookmarks"
         },
         "aiBookmarks.confirmBeforeDelete": {
