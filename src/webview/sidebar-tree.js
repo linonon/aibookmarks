@@ -1,0 +1,45 @@
+// ==================== Tree 模式渲染逻辑 (Grid 布局改进) ====================
+
+/**
+ * 渲染 bookmark header (Tree 模式 - Grid 布局，编辑按钮统一右对齐)
+ * @param {Object} bookmark - 书签对象
+ * @param {boolean} hasChildren - 是否有子书签
+ * @param {boolean} isCollapsed - 是否折叠
+ * @param {number} depth - 层级深度 (用于计算缩进)
+ * @returns {string} HTML 字符串
+ */
+function renderBookmarkHeaderTree(bookmark, hasChildren, isCollapsed, depth = 0) {
+  // 需要从 window 获取工具函数 (定义在 sidebar.js 中)
+  const escapeHtml = window.escapeHtml || ((str) => {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  });
+
+  const formatLocation = window.formatLocation || ((location) => {
+    if (!location) return '';
+    const parts = location.split('/');
+    return parts[parts.length - 1];
+  });
+
+  return `
+    <div class="bookmark-header" style="--indent-level: ${depth}">
+      <div class="bookmark-indent"></div>
+      ${hasChildren ? `<span class="bookmark-chevron"><span class="icon ${isCollapsed ? 'icon-expand' : 'icon-collapse'}"></span></span>` : ''}
+      ${bookmark.order ? `<span class="order-badge">${bookmark.order}</span>` : ''}
+      <div class="bookmark-title-location">
+        <span class="bookmark-title">${escapeHtml(bookmark.title)}</span>
+        <span class="bookmark-location">${escapeHtml(formatLocation(bookmark.location))}</span>
+      </div>
+      <button class="bookmark-header-edit-btn"
+              data-bookmark-id="${escapeHtml(bookmark.id)}"
+              title="Edit bookmark">
+        <span class="icon icon-edit"></span>
+      </button>
+    </div>
+  `.trim();
+}
+
+// 暴露到全局作用域
+window.renderBookmarkHeaderTree = renderBookmarkHeaderTree;

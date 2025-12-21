@@ -33,9 +33,86 @@
   let addBookmarkContext = null;
 
 
+  /**
+   * 动态加载模式特定的 CSS 文件
+   * @param {string} mode - 视图模式 ('nested' | 'tree')
+   */
+  function loadModeSpecificCSS(mode) {
+    // 移除之前加载的模式特定 CSS
+    const existingModeCSS = document.getElementById('mode-specific-css');
+    if (existingModeCSS) {
+      existingModeCSS.remove();
+    }
+
+    // 获取主 CSS 的基础 URL (从现有的 link 标签中提取)
+    const mainCssLink = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+      .find(link => link.href.includes('sidebar.css'));
+    
+    let baseUrl = '';
+    if (mainCssLink) {
+      // 提取基础 URL (去掉文件名)
+      const mainCssUrl = mainCssLink.href;
+      baseUrl = mainCssUrl.substring(0, mainCssUrl.lastIndexOf('/') + 1);
+    }
+
+    // 加载新的模式特定 CSS
+    const link = document.createElement('link');
+    link.id = 'mode-specific-css';
+    link.rel = 'stylesheet';
+    const fileName = mode === 'tree' ? 'sidebar-tree.css' : 'sidebar-nested.css';
+    link.href = baseUrl + fileName;
+    document.head.appendChild(link);
+
+    console.log(`[CSS] Loaded ${mode} mode CSS from ${link.href}`);
+  }
+
+  /**
+   * 动态加载模式特定的 JS 文件
+   * @param {string} mode - 视图模式 ('nested' | 'tree')
+   * @returns {Promise<void>}
+   */
+  function loadModeSpecificJS(mode) {
+    return new Promise((resolve, reject) => {
+      // 移除之前加载的模式特定 JS
+      const existingModeJS = document.getElementById('mode-specific-js');
+      if (existingModeJS) {
+        existingModeJS.remove();
+      }
+
+      // 获取主 JS 的基础 URL (从现有的 script 标签中提取)
+      const mainJsScript = Array.from(document.querySelectorAll('script'))
+        .find(script => script.src.includes('sidebar.js'));
+      
+      let baseUrl = '';
+      if (mainJsScript) {
+        // 提取基础 URL (去掉文件名)
+        const mainJsUrl = mainJsScript.src;
+        baseUrl = mainJsUrl.substring(0, mainJsUrl.lastIndexOf('/') + 1);
+      }
+
+      // 加载新的模式特定 JS
+      const script = document.createElement('script');
+      script.id = 'mode-specific-js';
+      const fileName = mode === 'tree' ? 'sidebar-tree.js' : 'sidebar-nested.js';
+      script.src = baseUrl + fileName;
+      script.onload = () => {
+        console.log(`[JS] Loaded ${mode} mode JS from ${script.src}`);
+        resolve();
+      };
+      script.onerror = (error) => {
+        console.error(`[JS] Failed to load ${mode} mode JS from ${script.src}`, error);
+        reject(error);
+      };
+      document.head.appendChild(script);
+    });
+  }
+
   // 初始化
-  function init() {
+  async function init() {
     console.log('✅✅✅ [INIT] Starting initialization... ✅✅✅');
+    // 加载默认模式的 CSS 和 JS
+    loadModeSpecificCSS(uiState.viewMode);
+    await loadModeSpecificJS(uiState.viewMode);
     setupEventListeners();
     console.log('✅✅✅ [INIT] Event listeners setup complete ✅✅✅');
     // 通知 Extension 已准备好
@@ -136,6 +213,9 @@
       case 'toggleViewMode':
         // 切换视图模式
         uiState.viewMode = uiState.viewMode === 'nested' ? 'tree' : 'nested';
+
+        // 重新加载模式特定的 CSS
+        loadModeSpecificCSS(uiState.viewMode);
 
         // 更新容器 class
         if (bookmarksContainer) {
@@ -276,6 +356,22 @@
       });
     }
 
+    // 根据视图模式渲染 header
+    let headerHtml;
+    if (uiState.viewMode === 'tree') {
+      // Tree 模式: 使用 Grid 布局
+      // @ts-ignore - Function loaded dynamically from sidebar-tree.js
+      headerHtml = typeof renderBookmarkHeaderTree === 'function'
+        ? renderBookmarkHeaderTree(bookmark, hasChildren, isCollapsed, depth)
+        : `<div class="bookmark-header">Loading...</div>`;
+    } else {
+      // Nested 模式: 使用 Flexbox 布局
+      // @ts-ignore - Function loaded dynamically from sidebar-nested.js
+      headerHtml = typeof renderBookmarkHeaderNested === 'function'
+        ? renderBookmarkHeaderNested(bookmark, hasChildren, isCollapsed)
+        : `<div class="bookmark-header">Loading...</div>`;
+    }
+
     return `
       <div class="bookmark-container ${hasChildren ? 'has-children' : ''} ${isCollapsed ? 'collapsed' : ''}"
            data-bookmark-id="${escapeHtml(bookmark.id)}"
@@ -283,19 +379,9 @@
            data-depth="${depth}">
         <div class="bookmark-item"
              data-category="${escapeHtml(category)}">
-          
+
           <div class="bookmark-content">
-            <div class="bookmark-header">
-              ${hasChildren ? `<span class="bookmark-chevron"><span class="icon ${isCollapsed ? 'icon-expand' : 'icon-collapse'}"></span></span>` : ''}
-              ${bookmark.order ? `<span class="order-badge">${bookmark.order}</span>` : ''}
-              <span class="bookmark-title">${escapeHtml(bookmark.title)}</span>
-              <span class="bookmark-location">${escapeHtml(formatLocation(bookmark.location))}</span>
-              <button class="bookmark-header-edit-btn"
-                      data-bookmark-id="${escapeHtml(bookmark.id)}"
-                      title="Edit bookmark">
-                <span class="icon icon-edit"></span>
-              </button>
-            </div>
+            ${headerHtml}
             ${bookmark.description ? `
               <div class="bookmark-description-wrapper">
                 <div class="bookmark-action-buttons">
@@ -328,6 +414,23 @@
     const parts = location.split('/');
     return parts[parts.length - 1];
   }
+
+  /**
+   * 工具函数: HTML 转义
+   * @param {string} str
+   */
+  function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // 暴露工具函数到全局作用域 (供外部渲染文件使用)
+  // @ts-ignore - Dynamic property added at runtime for mode-specific rendering
+  window.escapeHtml = escapeHtml;
+  // @ts-ignore - Dynamic property added at runtime for mode-specific rendering
+  window.formatLocation = formatLocation;
 
   // 处理书签点击事件 (事件委托)
   function handleBookmarkClick(e) {
