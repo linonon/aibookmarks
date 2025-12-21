@@ -3,34 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} https://unpkg.com;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}} https://unpkg.com; font-src {{cspSource}};">
   <title>AI Bookmarks</title>
+  <link rel="stylesheet" href="{{codiconsUri}}">
   <link rel="stylesheet" href="{{cssUri}}">
 </head>
 <body>
   <div class="sidebar-container">
-    <!-- 标题栏 -->
-    <div class="header-container">
-      <div class="header-title">
-        <span class="codicon codicon-bookmark header-icon"></span>
-        <span class="header-text">AI BOOKMARKS</span>
-      </div>
-      <div class="header-actions">
-        <button id="btn-search" class="header-btn" title="Search Bookmarks">
-          <span class="codicon codicon-search"></span>
-        </button>
-        <button id="btn-toggle-all" class="header-btn" title="Expand/Collapse All">
-          <span class="codicon codicon-unfold"></span>
-        </button>
-        <button id="btn-export" class="header-btn" title="Export Bookmarks">
-          <span class="codicon codicon-export"></span>
-        </button>
-        <button id="btn-new-group" class="header-btn" title="New Group">
-          <span class="codicon codicon-add"></span>
-        </button>
-      </div>
-    </div>
-
     <!-- 书签列表容器 -->
     <div id="bookmarks-container" class="bookmarks-container">
       <!-- 加载状态 -->

@@ -114,12 +114,17 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * 切换视图模式 (group/file)
+   * 切换 UI 视图风格 (Nested/Tree)
    */
-  public toggleViewMode(): void {
-    this._viewMode = this._viewMode === 'group' ? 'file' : 'group';
-    vscode.workspace.getConfiguration('aiBookmarks').update('viewMode', this._viewMode, true);
-    this.refresh();
+  public switchViewStyle(): void {
+    if (!this._view) {
+      return;
+    }
+    // 发送消息给 webview 切换 UI 样式
+    // 注意: Webview 内部已经有名为 'toggleViewMode' 的消息处理逻辑用于切换 UI 样式
+    this._view.webview.postMessage({
+      type: 'toggleViewMode'
+    });
   }
 
   /**
@@ -703,6 +708,10 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
 
     const cssUri = webview.asWebviewUri(cssPath);
     const jsUri = webview.asWebviewUri(jsPath);
+    const codiconsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'node_modules', '@vscode/codicons', 'dist', 'codicon.css'));
+
+    // Cache busting
+    const nonce = new Date().getTime() + '' + new Date().getMilliseconds();
 
     let htmlContent = '';
     try {
@@ -714,8 +723,9 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
 
     // 替换占位符
     htmlContent = htmlContent
-      .replace(/\{\{cssUri\}\}/g, cssUri.toString())
-      .replace(/\{\{jsUri\}\}/g, jsUri.toString())
+      .replace(/\{\{cssUri\}\}/g, `${cssUri.toString()}?t=${nonce}`)
+      .replace(/\{\{jsUri\}\}/g, `${jsUri.toString()}?t=${nonce}`)
+      .replace(/\{\{codiconsUri\}\}/g, codiconsUri.toString())
       .replace(/\{\{cspSource\}\}/g, webview.cspSource);
 
     return htmlContent;

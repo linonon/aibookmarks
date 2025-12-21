@@ -6,6 +6,8 @@
  */
 
 (function () {
+  console.log('🚀🚀🚀 [SIDEBAR.JS] FILE LOADED - NEW VERSION! 🚀🚀🚀');
+
   // @ts-ignore
   const vscode = acquireVsCodeApi();
 
@@ -19,24 +21,26 @@
   const contextMenu = document.getElementById('context-menu');
 
   // Header buttons
-  const btnSearch = document.getElementById('btn-search');
-  const btnNewGroup = document.getElementById('btn-new-group');
-  const btnToggleAll = document.getElementById('btn-toggle-all');
-  const btnExport = document.getElementById('btn-export');
+  // (view-style button removed, now controlled by VSCode toolbar)
 
   // State
   let currentData = { groups: [], viewMode: 'group' };
+  let uiState = { viewMode: 'nested' }; // nested | tree
   let collapsedGroups = new Set();
   let collapsedBookmarks = new Set();
   let contextMenuTarget = null;
   /** @type {{mode: string, targetBookmarkId: string, groupId: string, parentId: string|null}|null} */
   let addBookmarkContext = null;
 
+
   // 初始化
   function init() {
+    console.log('✅✅✅ [INIT] Starting initialization... ✅✅✅');
     setupEventListeners();
+    console.log('✅✅✅ [INIT] Event listeners setup complete ✅✅✅');
     // 通知 Extension 已准备好
     vscode.postMessage({ type: 'ready' });
+    console.log('✅✅✅ [INIT] Initialization complete! ✅✅✅');
   }
 
   /**
@@ -57,28 +61,7 @@
 
   // 设置事件监听
   function setupEventListeners() {
-    // Header buttons
-    if (btnSearch) {
-      btnSearch.addEventListener('click', () => {
-        vscode.postMessage({ type: 'searchBookmarks' });
-      });
-    }
-
-    if (btnNewGroup) {
-      btnNewGroup.addEventListener('click', () => {
-        vscode.postMessage({ type: 'createGroup' });
-      });
-    }
-
-    if (btnToggleAll) {
-      btnToggleAll.addEventListener('click', handleToggleAll);
-    }
-
-    if (btnExport) {
-      btnExport.addEventListener('click', () => {
-        vscode.postMessage({ type: 'exportBookmarks' });
-      });
-    }
+    console.log('[Setup] Initializing event listeners...');
 
     // 全局点击 (关闭 context menu)
     document.addEventListener('click', () => {
@@ -148,6 +131,24 @@
       case 'updateFontSize':
         if (message.config) {
           updateFontSize(message.config);
+        }
+        break;
+      case 'toggleViewMode':
+        // 切换视图模式
+        uiState.viewMode = uiState.viewMode === 'nested' ? 'tree' : 'nested';
+
+        // 更新容器 class
+        if (bookmarksContainer) {
+          if (uiState.viewMode === 'tree') {
+            bookmarksContainer.classList.add('view-mode-tree');
+          } else {
+            bookmarksContainer.classList.remove('view-mode-tree');
+          }
+
+          // 强制重绘
+          bookmarksContainer.style.display = 'none';
+          void bookmarksContainer.offsetHeight;
+          bookmarksContainer.style.display = '';
         }
         break;
     }
@@ -286,6 +287,7 @@
           <div class="bookmark-content">
             <div class="bookmark-header">
               ${hasChildren ? `<span class="bookmark-chevron"><span class="icon ${isCollapsed ? 'icon-expand' : 'icon-collapse'}"></span></span>` : ''}
+              ${bookmark.order ? `<span class="order-badge">${bookmark.order}</span>` : ''}
               <span class="bookmark-title">${escapeHtml(bookmark.title)}</span>
               <span class="bookmark-location">${escapeHtml(formatLocation(bookmark.location))}</span>
               <button class="bookmark-header-edit-btn"
@@ -1362,21 +1364,6 @@
   }
 
   // 展开全部/折叠全部切换
-  function handleToggleAll() {
-    const allCollapsed = Array.from(collapsedGroups).length === currentData.groups.length;
-
-    if (allCollapsed) {
-      expandAllGroups();
-      if (btnToggleAll) {
-        btnToggleAll.querySelector('.codicon').className = 'codicon codicon-fold';
-      }
-    } else {
-      collapseAllGroups();
-      if (btnToggleAll) {
-        btnToggleAll.querySelector('.codicon').className = 'codicon codicon-unfold';
-      }
-    }
-  }
 
   // 展开所有分组
   function expandAllGroups() {

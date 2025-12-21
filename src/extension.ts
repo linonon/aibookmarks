@@ -636,13 +636,20 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
     })
   );
 
-  // Toggle view mode command
+  // Toggle view style command (Nested/Tree)
   context.subscriptions.push(
     vscode.commands.registerCommand('aiBookmarks.toggleViewMode', () => {
       if (sidebarProvider) {
-        sidebarProvider.toggleViewMode();
-        const mode = sidebarProvider.viewMode === 'group' ? 'Group' : 'File';
-        vscode.window.showInformationMessage(`View mode: ${mode}`);
+        sidebarProvider.switchViewStyle();
+      }
+    })
+  );
+
+  // Switch view style command (UI style)
+  context.subscriptions.push(
+    vscode.commands.registerCommand('aiBookmarks.switchViewStyle', () => {
+      if (sidebarProvider) {
+        sidebarProvider.switchViewStyle();
       }
     })
   );

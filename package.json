@@ -93,8 +93,13 @@
       },
       {
         "command": "aiBookmarks.toggleViewMode",
-        "title": "Toggle View Mode (Group/File)",
-        "icon": "$(list-tree)"
+        "title": "Toggle View Style (Nested/Tree)",
+        "icon": "$(layout)"
+      },
+      {
+        "command": "aiBookmarks.switchViewStyle",
+        "title": "Switch View Style (Nested/Tree)",
+        "icon": "$(layout)"
       },
       {
         "command": "aiBookmarks.moveBookmarkUp",
