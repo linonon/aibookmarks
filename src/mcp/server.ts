@@ -638,7 +638,7 @@ export class MCPServer {
     this.handlers = new MCPHandlers(store);
     this.server = new Server(
       {
-        name: 'ai-bookmarks',
+        name: 'mcp-bookmarks',
         version: '0.1.0'
       },
       {
@@ -721,7 +721,7 @@ export class MCPServer {
   async start(): Promise<void> {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('AI Bookmarks MCP server started');
+    console.error('MCP Bookmarks MCP server started');
   }
 
   async stop(): Promise<void> {

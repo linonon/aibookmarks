@@ -17,12 +17,12 @@ let detailProvider: BookmarkDetailProvider | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
-  console.log('AI Bookmarks extension is activating...');
+  console.log('MCP Bookmarks extension is activating...');
 
   // Get workspace root
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
-    console.log('No workspace folder found, AI Bookmarks will not activate');
+    console.log('No workspace folder found, MCP Bookmarks will not activate');
     return;
   }
 
@@ -34,7 +34,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Initialize and register sidebar webview provider
   sidebarProvider = new BookmarkSidebarProvider(context.extensionUri, bookmarkStore, workspaceRoot);
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider('aiBookmarks', sidebarProvider)
+    vscode.window.registerWebviewViewProvider('mcpBookmarks', sidebarProvider)
   );
 
   // Initialize decoration provider
@@ -59,7 +59,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Create status bar item
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-  statusBarItem.command = 'aiBookmarks.search';
+  statusBarItem.command = 'mcpBookmarks.search';
   updateStatusBar();
 
   // Update status bar when bookmarks change
@@ -118,7 +118,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   });
 
-  console.log('AI Bookmarks extension activated');
+  console.log('MCP Bookmarks extension activated');
 }
 
 function updateStatusBar(): void {
@@ -158,7 +158,7 @@ function updateStatusBar(): void {
   if (allBookmarks.length > 0) {
     statusBarItem.text = `$(bookmark) ${allBookmarks.length}${currentFileInfo}`;
     statusBarItem.tooltip = new vscode.MarkdownString();
-    statusBarItem.tooltip.appendMarkdown(`**AI Bookmarks**\n\n`);
+    statusBarItem.tooltip.appendMarkdown(`**MCP Bookmarks**\n\n`);
     statusBarItem.tooltip.appendMarkdown(`- Total: ${allBookmarks.length} bookmark(s)\n`);
     statusBarItem.tooltip.appendMarkdown(`- Groups: ${groupCount}\n`);
     if (currentFileCount > 0) {
@@ -174,14 +174,14 @@ function updateStatusBar(): void {
 function registerCommands(context: vscode.ExtensionContext, workspaceRoot: string): void {
   // Refresh command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.refresh', () => {
+    vscode.commands.registerCommand('mcpBookmarks.refresh', () => {
       sidebarProvider?.refresh();
     })
   );
 
   // Reveal bookmark in sidebar (for CodeLens click)
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.revealBookmark', (bookmark: Bookmark, _group: BookmarkGroup) => {
+    vscode.commands.registerCommand('mcpBookmarks.revealBookmark', (bookmark: Bookmark, _group: BookmarkGroup) => {
       // Focus and highlight the bookmark in sidebar
       sidebarProvider?.revealBookmark(bookmark.id);
     })
@@ -189,7 +189,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Jump to bookmark command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.jumpTo', async (bookmark: Bookmark) => {
+    vscode.commands.registerCommand('mcpBookmarks.jumpTo', async (bookmark: Bookmark) => {
       if (!bookmark) {
         return;
       }
@@ -239,7 +239,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Delete bookmark command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.delete', async (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.delete', async (item: unknown) => {
       if (!bookmarkStore) {
         return;
       }
@@ -266,7 +266,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Delete group command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.deleteGroup', async (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.deleteGroup', async (item: unknown) => {
       if (!bookmarkStore) {
         return;
       }
@@ -293,7 +293,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Add manual bookmark command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.addManual', async () => {
+    vscode.commands.registerCommand('mcpBookmarks.addManual', async () => {
       if (!bookmarkStore) {
         return;
       }
@@ -402,7 +402,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Create group command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.createGroup', async () => {
+    vscode.commands.registerCommand('mcpBookmarks.createGroup', async () => {
       if (!bookmarkStore) {
         return;
       }
@@ -429,7 +429,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Export to markdown command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.exportMarkdown', async () => {
+    vscode.commands.registerCommand('mcpBookmarks.exportMarkdown', async () => {
       if (!bookmarkStore) {
         return;
       }
@@ -450,7 +450,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Search bookmarks command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.search', async () => {
+    vscode.commands.registerCommand('mcpBookmarks.search', async () => {
       if (!bookmarkStore) {
         return;
       }
@@ -479,14 +479,14 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
       if (selected) {
         // Jump to the selected bookmark
-        vscode.commands.executeCommand('aiBookmarks.jumpTo', selected.bookmark);
+        vscode.commands.executeCommand('mcpBookmarks.jumpTo', selected.bookmark);
       }
     })
   );
 
   // Check bookmark validity command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.checkValidity', async (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.checkValidity', async (item: unknown) => {
       if (!bookmarkStore) {
         return;
       }
@@ -548,7 +548,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Edit bookmark command - 改为提示用户在 sidebar 中双击编辑
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.editBookmark', async (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.editBookmark', async (item: unknown) => {
       if (!bookmarkStore) {
         return;
       }
@@ -591,7 +591,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
         case 'Description (Double-click in sidebar)': {
           // 提示用户在 sidebar 中双击 description 编辑
           vscode.window.showInformationMessage(
-            'Please double-click the description in the AI Bookmarks sidebar to edit it',
+            'Please double-click the description in the MCP Bookmarks sidebar to edit it',
             'Got it'
           );
           // 通知 sidebar 高亮这个书签
@@ -624,21 +624,21 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Navigate to next bookmark
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.nextBookmark', async () => {
+    vscode.commands.registerCommand('mcpBookmarks.nextBookmark', async () => {
       await navigateBookmark('next', workspaceRoot);
     })
   );
 
   // Navigate to previous bookmark
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.prevBookmark', async () => {
+    vscode.commands.registerCommand('mcpBookmarks.prevBookmark', async () => {
       await navigateBookmark('prev', workspaceRoot);
     })
   );
 
   // Toggle view style command (Nested/Tree)
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.toggleViewMode', () => {
+    vscode.commands.registerCommand('mcpBookmarks.toggleViewMode', () => {
       if (sidebarProvider) {
         sidebarProvider.switchViewStyle();
       }
@@ -647,7 +647,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Switch view style command (UI style)
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.switchViewStyle', () => {
+    vscode.commands.registerCommand('mcpBookmarks.switchViewStyle', () => {
       if (sidebarProvider) {
         sidebarProvider.switchViewStyle();
       }
@@ -656,7 +656,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Move bookmark up command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.moveBookmarkUp', (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.moveBookmarkUp', (item: unknown) => {
       if (!bookmarkStore) {
         return;
       }
@@ -676,7 +676,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Move bookmark down command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.moveBookmarkDown', (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.moveBookmarkDown', (item: unknown) => {
       if (!bookmarkStore) {
         return;
       }
@@ -696,7 +696,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Expand all command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.expandAll', () => {
+    vscode.commands.registerCommand('mcpBookmarks.expandAll', () => {
       if (sidebarProvider) {
         sidebarProvider.expandAll();
       }
@@ -705,7 +705,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Collapse all command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.collapseAll', () => {
+    vscode.commands.registerCommand('mcpBookmarks.collapseAll', () => {
       if (sidebarProvider) {
         sidebarProvider.collapseAll();
       }
@@ -714,7 +714,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Collapse single group command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.collapseGroup', (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.collapseGroup', (item: unknown) => {
       if (sidebarProvider) {
         const groupItem = item as { type: string; group?: { id: string } };
         if (groupItem?.type === 'group' && groupItem.group) {
@@ -726,7 +726,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Expand single group command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.expandGroup', (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.expandGroup', (item: unknown) => {
       if (sidebarProvider) {
         const groupItem = item as { type: string; group?: { id: string } };
         if (groupItem?.type === 'group' && groupItem.group) {
@@ -738,7 +738,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Edit group command (edit name and description)
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.editGroup', async (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.editGroup', async (item: unknown) => {
       if (!bookmarkStore) {
         return;
       }
@@ -803,7 +803,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Rename group command (quick rename with F2)
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.renameGroup', async (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.renameGroup', async (item: unknown) => {
       if (!bookmarkStore) {
         return;
       }
@@ -829,7 +829,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Move bookmark to another group command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.moveBookmark', async (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.moveBookmark', async (item: unknown) => {
       if (!bookmarkStore) {
         return;
       }
@@ -887,7 +887,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Copy bookmark info command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.copyBookmarkInfo', async (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.copyBookmarkInfo', async (item: unknown) => {
       const bookmarkItem = item as { type: string; bookmark?: Bookmark };
       if (bookmarkItem?.type !== 'bookmark' || !bookmarkItem.bookmark) {
         vscode.window.showErrorMessage('Please select a bookmark to copy');
@@ -903,7 +903,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Copy group info command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.copyGroupInfo', async (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.copyGroupInfo', async (item: unknown) => {
       const groupItem = item as { type: string; group?: BookmarkGroup };
       if (groupItem?.type !== 'group' || !groupItem.group) {
         vscode.window.showErrorMessage('Please select a group to copy');
@@ -919,7 +919,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Copy relative path command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.copyRelativePath', async (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.copyRelativePath', async (item: unknown) => {
       const bookmarkItem = item as { type: string; bookmark?: Bookmark };
       if (bookmarkItem?.type !== 'bookmark' || !bookmarkItem.bookmark) {
         vscode.window.showErrorMessage('Please select a bookmark to copy');
@@ -936,7 +936,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Copy absolute path command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.copyAbsolutePath', async (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.copyAbsolutePath', async (item: unknown) => {
       const bookmarkItem = item as { type: string; bookmark?: Bookmark };
       if (bookmarkItem?.type !== 'bookmark' || !bookmarkItem.bookmark) {
         vscode.window.showErrorMessage('Please select a bookmark to copy');
@@ -962,7 +962,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Add child bookmark command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.addChildBookmark', async (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.addChildBookmark', async (item: unknown) => {
       if (!bookmarkStore) {
         return;
       }
@@ -1046,7 +1046,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Open bookmark detail command
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.openBookmarkDetail', (item: unknown) => {
+    vscode.commands.registerCommand('mcpBookmarks.openBookmarkDetail', (item: unknown) => {
       const bookmarkItem = item as { type: string; bookmark?: Bookmark };
       if (bookmarkItem?.type === 'bookmark' && bookmarkItem.bookmark) {
         detailProvider?.showBookmarkDetail(bookmarkItem.bookmark.id);
@@ -1056,7 +1056,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
   // Open file command (for clickable links in hover)
   context.subscriptions.push(
-    vscode.commands.registerCommand('aiBookmarks.openFile', async (args: { path: string; line?: number }) => {
+    vscode.commands.registerCommand('mcpBookmarks.openFile', async (args: { path: string; line?: number }) => {
       try {
         const { path: filePath, line } = args;
 
@@ -1095,6 +1095,83 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
         }
       } catch (error) {
         vscode.window.showErrorMessage(`Failed to parse file link: ${error}`);
+      }
+    })
+  );
+
+  // Copy MCP setup command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('mcpBookmarks.copyMCPCommand', async () => {
+      const extensionPath = context.extensionPath;
+      const serverPath = path.join(extensionPath, 'dist', 'mcp-server.js');
+
+      // Check if server file exists
+      const fs = await import('fs');
+      if (!fs.existsSync(serverPath)) {
+        vscode.window.showErrorMessage(
+          'MCP server file not found. Please reinstall the extension.'
+        );
+        return;
+      }
+
+      // Generate commands for different tools
+      const commands = [
+        {
+          label: 'Claude Code (npx - Recommended)',
+          description: 'Auto-updates, no path management needed',
+          command: `claude mcp add -s local -- npx -y @linonon/mcp-bookmarks-server`
+        },
+        {
+          label: 'Gemini (npx - Recommended)',
+          description: 'Auto-updates, no path management needed',
+          command: `gemini mcp add -s local -- npx -y @linonon/mcp-bookmarks-server`
+        },
+        {
+          label: 'Claude Code (Direct)',
+          description: 'Use extension path (requires manual update after extension upgrade)',
+          command: `claude mcp add -s local -- node "${serverPath}"`
+        },
+        {
+          label: 'Gemini (Direct)',
+          description: 'Use extension path (requires manual update after extension upgrade)',
+          command: `gemini mcp add -s local -- node "${serverPath}"`
+        },
+        {
+          label: 'VSCode (Copy Path)',
+          description: 'Copy server path for manual configuration',
+          command: serverPath
+        }
+      ];
+
+      const selected = await vscode.window.showQuickPick(commands, {
+        placeHolder: 'Select which MCP command to copy'
+      });
+
+      if (!selected) {
+        return;
+      }
+
+      await vscode.env.clipboard.writeText(selected.command);
+
+      if (selected.label === 'VSCode (Copy Path)') {
+        vscode.window.showInformationMessage(
+          `Server path copied! Now:\n` +
+          `1. Press Cmd+P (Mac) or Ctrl+P (Windows)\n` +
+          `2. Type "MCP: Open User Configuration"\n` +
+          `3. Add configuration:\n` +
+          `   "mcp-bookmark": {\n` +
+          `     "type": "stdio",\n` +
+          `     "command": "node",\n` +
+          `     "args": ["${serverPath}"]\n` +
+          `   }`,
+          'Got it'
+        );
+      } else {
+        vscode.window.showInformationMessage(
+          `${selected.label} command copied to clipboard!\n` +
+          `Run the command in your terminal to configure MCP.`,
+          'Got it'
+        );
       }
     })
   );
@@ -1241,7 +1318,7 @@ async function navigateBookmark(direction: 'next' | 'prev', workspaceRoot: strin
   }
 
   if (targetIdx >= 0 && targetIdx < sortedBookmarks.length) {
-    await vscode.commands.executeCommand('aiBookmarks.jumpTo', sortedBookmarks[targetIdx].bookmark);
+    await vscode.commands.executeCommand('mcpBookmarks.jumpTo', sortedBookmarks[targetIdx].bookmark);
   }
 }
 

@@ -7,7 +7,7 @@ const marked = /** @type {any} */ (window).marked;
 const DOMPurify = /** @type {any} */ (window).DOMPurify;
 
 /**
- * AI Bookmarks Sidebar Webview Script
+ * MCP Bookmarks Sidebar Webview Script
  * 处理侧边栏的渲染和交互逻辑
  */
 
@@ -536,10 +536,15 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
           <div class="group-info">
             <span class="group-name">${escapeHtml(group.name)}</span>
             ${group.query ? `
-              <div class="group-query" 
-                   data-group-id="${escapeHtml(group.id)}"
-                   title="${escapeHtml(group.query)}">
-                ${renderMarkdown(group.query)}
+              <div class="group-query-wrapper">
+                <button class="group-query-toggle-btn" data-group-id="${escapeHtml(group.id)}" title="Expand/Collapse">
+                  <span class="icon icon-expand"></span>
+                </button>
+                <div class="group-query" 
+                     data-group-id="${escapeHtml(group.id)}"
+                     title="${escapeHtml(group.query)}">
+                  ${renderMarkdown(group.query)}
+                </div>
               </div>
             ` : ''}
           </div>
@@ -737,6 +742,22 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
   /** @param {MouseEvent} e */
   function handleBookmarkClick(e) {
     hideContextMenu(); // 关闭可能打开的右键菜单
+
+    // 检查是否点击了 group query 展开/折叠按钮
+    const groupQueryToggleBtn = /** @type {HTMLElement} */ (e.target).closest('.group-query-toggle-btn');
+    if (groupQueryToggleBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const groupId = groupQueryToggleBtn.getAttribute('data-group-id');
+      const queryElement = document.querySelector(`.group-query[data-group-id="${groupId}"]`);
+      const icon = groupQueryToggleBtn.querySelector('.icon');
+
+      if (queryElement && icon) {
+        const isExpanded = queryElement.classList.toggle('expanded');
+        icon.className = isExpanded ? 'icon icon-collapse' : 'icon icon-expand';
+      }
+      return;
+    }
 
     // 🚀 事件委托优化: 检查是否点击了 group header
     const groupHeader = /** @type {HTMLElement} */ (e.target).closest('.group-header');

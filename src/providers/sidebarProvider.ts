@@ -7,7 +7,7 @@ import { parseLocation, toAbsolutePath } from '../utils';
 import { ConfigManager } from '../config/settings';
 
 export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'aiBookmarks';
+  public static readonly viewType = 'mcpBookmarks';
 
   private _view?: vscode.WebviewView;
   private _disposables: vscode.Disposable[] = [];
@@ -43,7 +43,7 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
     // 监听视图风格变化
     this._disposables.push(
       vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('aiBookmarks.viewStyle')) {
+        if (e.affectsConfiguration('mcpBookmarks.viewStyle')) {
           this.refresh();
         }
       })
@@ -94,7 +94,7 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
     }
 
     const groups = this.bookmarkStore.listGroups();
-    const config = vscode.workspace.getConfiguration('aiBookmarks');
+    const config = vscode.workspace.getConfiguration('mcpBookmarks');
     const viewMode = config.get<string>('viewMode') || 'group';
     const viewStyle = config.get<string>('viewStyle') || 'nested';
 
@@ -150,7 +150,7 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
       return;
     }
     
-    const config = vscode.workspace.getConfiguration('aiBookmarks');
+    const config = vscode.workspace.getConfiguration('mcpBookmarks');
     const currentStyle = config.get<string>('viewStyle') || 'nested';
     const newStyle = currentStyle === 'nested' ? 'tree' : 'nested';
     
@@ -281,7 +281,7 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
 
       case 'deleteBookmark':
         if (message.bookmarkId) {
-          const confirmDelete = vscode.workspace.getConfiguration('aiBookmarks').get<boolean>('confirmBeforeDelete', true);
+          const confirmDelete = vscode.workspace.getConfiguration('mcpBookmarks').get<boolean>('confirmBeforeDelete', true);
           if (confirmDelete) {
             const confirm = await vscode.window.showWarningMessage(
               'Delete this bookmark?',
@@ -298,7 +298,7 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
 
       case 'deleteGroup':
         if (message.groupId) {
-          const confirmDelete = vscode.workspace.getConfiguration('aiBookmarks').get<boolean>('confirmBeforeDelete', true);
+          const confirmDelete = vscode.workspace.getConfiguration('mcpBookmarks').get<boolean>('confirmBeforeDelete', true);
           if (confirmDelete) {
             const confirm = await vscode.window.showWarningMessage(
               'Delete this group and all its bookmarks?',
@@ -317,7 +317,7 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
         if (message.bookmarkId) {
           const editResult = this.bookmarkStore.getBookmark(message.bookmarkId);
           if (editResult) {
-            vscode.commands.executeCommand('aiBookmarks.editBookmark', {
+            vscode.commands.executeCommand('mcpBookmarks.editBookmark', {
               type: 'bookmark',
               bookmark: editResult.bookmark
             });
@@ -329,7 +329,7 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
         if (message.groupId) {
           const group = this.bookmarkStore.getGroup(message.groupId);
           if (group) {
-            vscode.commands.executeCommand('aiBookmarks.editGroup', {
+            vscode.commands.executeCommand('mcpBookmarks.editGroup', {
               type: 'group',
               group: {
                 id: group.id,
@@ -367,12 +367,12 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
 
       case 'createGroup':
         // 创建新分组
-        vscode.commands.executeCommand('aiBookmarks.createGroup');
+        vscode.commands.executeCommand('mcpBookmarks.createGroup');
         break;
 
       case 'exportBookmarks':
         // 导出书签
-        vscode.commands.executeCommand('aiBookmarks.exportMarkdown');
+        vscode.commands.executeCommand('mcpBookmarks.exportMarkdown');
         break;
 
       case 'updateBookmarkDescription':
@@ -778,7 +778,7 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}};">
-  <title>AI Bookmarks</title>
+  <title>MCP Bookmarks</title>
   <link rel="stylesheet" href="{{cssUri}}">
 </head>
 <body>

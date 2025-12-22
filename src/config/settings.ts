@@ -24,7 +24,7 @@ export interface HierarchyColorConfig {
 
 // 配置管理器
 export class ConfigManager {
-  private static readonly SECTION = 'aiBookmarks';
+  private static readonly SECTION = 'mcpBookmarks';
 
   /**
    * 读取层级颜色配置

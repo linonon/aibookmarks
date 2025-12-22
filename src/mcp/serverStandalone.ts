@@ -29,7 +29,7 @@ Without calling this tool first, bookmarks will be saved to the wrong location (
 Example: If you're working on a project at /Users/name/projects/myapp, call:
 set_workspace({ path: "/Users/name/projects/myapp" })
 
-Then all subsequent bookmark operations will save to /Users/name/projects/myapp/.vscode/ai-bookmarks.json`,
+Then all subsequent bookmark operations will save to /Users/name/projects/myapp/.vscode/mcp-bookmarks.json`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -690,7 +690,7 @@ export class MCPServerStandalone {
     this.handlers = new MCPHandlersStandalone(workspaceManager);
     this.server = new Server(
       {
-        name: 'ai-bookmarks',
+        name: 'mcp-bookmarks',
         version: '0.1.0'
       },
       {
@@ -782,7 +782,7 @@ export class MCPServerStandalone {
   async start(): Promise<void> {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('AI Bookmarks MCP server started');
+    console.error('MCP Bookmarks MCP server started');
   }
 
   async stop(): Promise<void> {

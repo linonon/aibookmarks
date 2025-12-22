@@ -1,4 +1,4 @@
-# AI Bookmarks - VSCode Extension
+# MCP Bookmarks - VSCode Extension
 
 # 这个文档应该与 ./GEMINI.md 中的说明保持同步更新, 应该保持一模一样的内容.
 
@@ -116,7 +116,7 @@
 ## 項目結構
 
 ```
-ai-bookmarks/
+mcp-bookmarks/
 ├── package.json              # VSCode 擴展配置
 ├── tsconfig.json
 ├── src/
@@ -211,7 +211,7 @@ interface BookmarkStore {
 }
 ```
 
-存儲位置：`.vscode/ai-bookmarks.json`
+存儲位置：`.vscode/mcp-bookmarks.json`
 
 ## Markdown Link Support in Descriptions
 
@@ -517,21 +517,21 @@ Step 4: 編輯標籤（逗號分隔）
 
 ```typescript
 // 分組操作
-"aiBookmarks.createGroup"       // 創建分組
-"aiBookmarks.editGroup"         // 編輯分組
-"aiBookmarks.deleteGroup"       // 刪除分組
-"aiBookmarks.renameGroup"       // 重命名分組
+"mcpBookmarks.createGroup"       // 創建分組
+"mcpBookmarks.editGroup"         // 編輯分組
+"mcpBookmarks.deleteGroup"       // 刪除分組
+"mcpBookmarks.renameGroup"       // 重命名分組
 
 // 書籤操作
-"aiBookmarks.addBookmarkHere"   // 在當前位置添加書籤（已有 addManual）
-"aiBookmarks.editBookmark"      // 編輯書籤
-"aiBookmarks.deleteBookmark"    // 刪除書籤（已有 delete）
-"aiBookmarks.moveBookmark"      // 移動書籤到其他分組
-"aiBookmarks.duplicateBookmark" // 複製書籤
+"mcpBookmarks.addBookmarkHere"   // 在當前位置添加書籤（已有 addManual）
+"mcpBookmarks.editBookmark"      // 編輯書籤
+"mcpBookmarks.deleteBookmark"    // 刪除書籤（已有 delete）
+"mcpBookmarks.moveBookmark"      // 移動書籤到其他分組
+"mcpBookmarks.duplicateBookmark" // 複製書籤
 
 // 批量操作
-"aiBookmarks.deleteSelected"    // 刪除選中項
-"aiBookmarks.moveSelected"      // 移動選中項
+"mcpBookmarks.deleteSelected"    // 刪除選中項
+"mcpBookmarks.moveSelected"      // 移動選中項
 ```
 
 ### 快捷鍵配置
@@ -539,22 +539,22 @@ Step 4: 編輯標籤（逗號分隔）
 ```json
 {
   "key": "ctrl+alt+b",
-  "command": "aiBookmarks.addBookmarkHere",
+  "command": "mcpBookmarks.addBookmarkHere",
   "when": "editorTextFocus"
 },
 {
   "key": "ctrl+shift+b",
-  "command": "aiBookmarks.searchBookmarks"
+  "command": "mcpBookmarks.searchBookmarks"
 },
 {
   "key": "delete",
-  "command": "aiBookmarks.deleteBookmark",
-  "when": "view == aiBookmarks && viewItem == bookmark"
+  "command": "mcpBookmarks.deleteBookmark",
+  "when": "view == mcpBookmarks && viewItem == bookmark"
 },
 {
   "key": "f2",
-  "command": "aiBookmarks.renameGroup",
-  "when": "view == aiBookmarks && viewItem == group"
+  "command": "mcpBookmarks.renameGroup",
+  "when": "view == mcpBookmarks && viewItem == group"
 }
 ```
 
@@ -562,19 +562,19 @@ Step 4: 編輯標籤（逗號分隔）
 
 ```json
 {
-  "aiBookmarks.quickAddMode": {
+  "mcpBookmarks.quickAddMode": {
     "type": "string",
     "enum": ["full", "simple"],
     "default": "simple",
     "description": "快速添加書籤模式: full=完整流程, simple=只需標題"
   },
-  "aiBookmarks.defaultCategory": {
+  "mcpBookmarks.defaultCategory": {
     "type": "string",
     "enum": ["entry-point", "core-logic", "issue", "note"],
     "default": "note",
     "description": "新書籤的默認分類"
   },
-  "aiBookmarks.confirmBeforeDelete": {
+  "mcpBookmarks.confirmBeforeDelete": {
     "type": "boolean",
     "default": true,
     "description": "刪除前是否需要確認"
@@ -641,8 +641,8 @@ Step 4: 編輯標籤（逗號分隔）
 
 ```json
 {
-  "name": "ai-bookmarks",
-  "displayName": "AI Bookmarks",
+  "name": "mcp-bookmarks",
+  "displayName": "MCP Bookmarks",
   "description": "AI-powered code bookmarks with MCP integration",
   "version": "0.1.0",
   "engines": {
@@ -655,66 +655,66 @@ Step 4: 編輯標籤（逗號分隔）
     "views": {
       "explorer": [
         {
-          "id": "aiBookmarks",
-          "name": "AI Bookmarks",
+          "id": "mcpBookmarks",
+          "name": "MCP Bookmarks",
           "icon": "icons/bookmark.svg"
         }
       ]
     },
     "commands": [
       {
-        "command": "aiBookmarks.refresh",
+        "command": "mcpBookmarks.refresh",
         "title": "Refresh Bookmarks",
         "icon": "$(refresh)"
       },
       {
-        "command": "aiBookmarks.jumpTo",
+        "command": "mcpBookmarks.jumpTo",
         "title": "Jump to Bookmark"
       },
       {
-        "command": "aiBookmarks.delete",
+        "command": "mcpBookmarks.delete",
         "title": "Delete Bookmark",
         "icon": "$(trash)"
       },
       {
-        "command": "aiBookmarks.addManual",
+        "command": "mcpBookmarks.addManual",
         "title": "Add Bookmark Here"
       },
       {
-        "command": "aiBookmarks.exportMarkdown",
+        "command": "mcpBookmarks.exportMarkdown",
         "title": "Export Bookmarks as Markdown"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "aiBookmarks.refresh",
-          "when": "view == aiBookmarks",
+          "command": "mcpBookmarks.refresh",
+          "when": "view == mcpBookmarks",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
-          "command": "aiBookmarks.delete",
-          "when": "view == aiBookmarks && viewItem == bookmark"
+          "command": "mcpBookmarks.delete",
+          "when": "view == mcpBookmarks && viewItem == bookmark"
         }
       ],
       "editor/context": [
         {
-          "command": "aiBookmarks.addManual",
+          "command": "mcpBookmarks.addManual",
           "group": "navigation"
         }
       ]
     },
     "configuration": {
-      "title": "AI Bookmarks",
+      "title": "MCP Bookmarks",
       "properties": {
-        "aiBookmarks.mcpPort": {
+        "mcpBookmarks.mcpPort": {
           "type": "number",
           "default": 3333,
           "description": "MCP Server port"
         },
-        "aiBookmarks.showInlineDecorations": {
+        "mcpBookmarks.showInlineDecorations": {
           "type": "boolean",
           "default": true,
           "description": "Show bookmark icons in editor gutter"
@@ -768,7 +768,7 @@ npx vsce package
    - 需要在 `.claude/mcp.json` 中註冊
 
 2. **書籤存儲**
-   - 使用 `.vscode/ai-bookmarks.json` 存儲
+   - 使用 `.vscode/mcp-bookmarks.json` 存儲
    - 文件變化時自動重新加載
    - 支持多 workspace
 
@@ -789,9 +789,9 @@ npx vsce package
 ```json
 {
   "mcpServers": {
-    "ai-bookmarks": {
+    "mcp-bookmarks": {
       "command": "node",
-      "args": ["${workspaceFolder}/.vscode/ai-bookmarks-mcp/server.js"],
+      "args": ["${workspaceFolder}/.vscode/mcp-bookmarks-mcp/server.js"],
       "description": "AI 書籤管理 - 在代碼中標記和說明重要位置"
     }
   }

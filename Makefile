@@ -38,11 +38,11 @@ rebuild: clean install compile
 
 # Add MCP server to Claude Code
 mcp-add: compile
-	claude mcp add -s user ai-bookmarks -- node $(PROJECT_DIR)/dist/mcp-server.js
+	claude mcp add -s user mcp-bookmarks -- node $(PROJECT_DIR)/dist/mcp-server.js
 
 # Remove MCP server from Claude Code
 mcp-remove:
-	claude mcp remove -s user ai-bookmarks
+	claude mcp remove -s user mcp-bookmarks
 
 # Reinstall VS Code extension
 reinstall-ext: package

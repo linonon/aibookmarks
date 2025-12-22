@@ -54,7 +54,7 @@ export class BookmarkHoverProvider implements vscode.HoverProvider {
     md.supportHtml = true;
 
     // Simple header
-    md.appendMarkdown(`#### AI Bookmarks\n\n`);
+    md.appendMarkdown(`#### MCP Bookmarks\n\n`);
 
     for (let i = 0; i < bookmarks.length; i++) {
       const { bookmark, group } = bookmarks[i];
@@ -115,7 +115,7 @@ export class BookmarkHoverProvider implements vscode.HoverProvider {
         // Create VSCode command link
         // VSCode expects arguments as a JSON array
         const args = encodeURIComponent(JSON.stringify([{ path: filePath, line }]));
-        const commandUri = `command:aiBookmarks.openFile?${args}`;
+        const commandUri = `command:mcpBookmarks.openFile?${args}`;
         
         return `[${linkText}](${commandUri})`;
       } catch (error) {
