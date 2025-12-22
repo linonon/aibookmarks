@@ -4,6 +4,11 @@
   "description": "AI-powered code bookmarks with MCP integration",
   "version": "0.1.0",
   "publisher": "linonon",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/linonon/ai-bookmarks.git"
+  },
+  "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
   },
