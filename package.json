@@ -355,6 +355,15 @@
           "default": "group",
           "description": "View mode for bookmarks: 'group' (by bookmark group) or 'file' (by file path)"
         },
+        "aiBookmarks.viewStyle": {
+          "type": "string",
+          "enum": [
+            "nested",
+            "tree"
+          ],
+          "default": "nested",
+          "description": "UI style for bookmarks: 'nested' (hierarchical) or 'tree' (flat list with tree structure)"
+        },
         "aiBookmarks.quickAddMode": {
           "type": "string",
           "enum": [

@@ -52,6 +52,13 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
   
   /** @type {{ viewMode: 'nested' | 'tree' }} */
   let uiState = { viewMode: 'nested' }; // nested | tree
+
+  // 尝试从持久化状态恢复
+  const savedState = vscode.getState();
+  if (savedState && savedState.viewMode) {
+    uiState.viewMode = savedState.viewMode;
+    console.log(`[State] Restored viewMode from state: ${uiState.viewMode}`);
+  }
   
   /** @type {Set<string>} */
   let collapsedGroups = new Set();
@@ -142,6 +149,16 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
   // 初始化
   async function init() {
     console.log('✅✅✅ [INIT] Starting initialization... ✅✅✅');
+
+    // 恢复容器 class
+    if (bookmarksContainer) {
+      if (uiState.viewMode === 'tree') {
+        bookmarksContainer.classList.add('view-mode-tree');
+      } else {
+        bookmarksContainer.classList.remove('view-mode-tree');
+      }
+    }
+
     // 加载默认模式的 CSS 和 JS
     loadModeSpecificCSS(uiState.viewMode);
     await loadModeSpecificJS(uiState.viewMode);
@@ -246,7 +263,14 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
         break;
       case 'toggleViewMode':
         // 切换视图模式
-        uiState.viewMode = uiState.viewMode === 'nested' ? 'tree' : 'nested';
+        if (message.viewStyle) {
+          uiState.viewMode = message.viewStyle;
+        } else {
+          uiState.viewMode = uiState.viewMode === 'nested' ? 'tree' : 'nested';
+        }
+        
+        // 保存状态
+        vscode.setState({ viewMode: uiState.viewMode });
 
         // 重新加载模式特定的 CSS
         loadModeSpecificCSS(uiState.viewMode);
@@ -282,6 +306,32 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
   // 处理刷新数据
   /** @param {any} data */
   function handleRefresh(data) {
+    console.log('[Sidebar] Received refresh data:', data);
+
+    // 同步视图模式 (从 Extension 同步)
+    if (data.viewStyle && data.viewStyle !== uiState.viewMode) {
+      console.log(`[Sidebar] Syncing viewStyle from extension: ${data.viewStyle}`);
+      uiState.viewMode = data.viewStyle;
+      vscode.setState({ viewMode: uiState.viewMode });
+      
+      // 重新加载 CSS 和 JS
+      loadModeSpecificCSS(uiState.viewMode);
+      loadModeSpecificJS(uiState.viewMode).then(() => {
+        currentData = data;
+        renderGroups(data.groups);
+      });
+
+      // 更新容器 class
+      if (bookmarksContainer) {
+        if (uiState.viewMode === 'tree') {
+          bookmarksContainer.classList.add('view-mode-tree');
+        } else {
+          bookmarksContainer.classList.remove('view-mode-tree');
+        }
+      }
+      return;
+    }
+
     currentData = data;
     renderGroups(data.groups);
   }

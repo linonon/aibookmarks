@@ -38,6 +38,15 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
         this.updateFontSize();
       })
     );
+
+    // 监听视图风格变化
+    this._disposables.push(
+      vscode.workspace.onDidChangeConfiguration(e => {
+        if (e.affectsConfiguration('aiBookmarks.viewStyle')) {
+          this.refresh();
+        }
+      })
+    );
   }
 
   public resolveWebviewView(
@@ -84,13 +93,16 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
     }
 
     const groups = this.bookmarkStore.listGroups();
-    const viewMode = vscode.workspace.getConfiguration('aiBookmarks').get<string>('viewMode') || 'group';
+    const config = vscode.workspace.getConfiguration('aiBookmarks');
+    const viewMode = config.get<string>('viewMode') || 'group';
+    const viewStyle = config.get<string>('viewStyle') || 'nested';
 
     this._view.webview.postMessage({
       type: 'refresh',
       data: {
         groups,
-        viewMode
+        viewMode,
+        viewStyle
       }
     });
 
@@ -116,14 +128,22 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
   /**
    * 切换 UI 视图风格 (Nested/Tree)
    */
-  public switchViewStyle(): void {
+  public async switchViewStyle(): Promise<void> {
     if (!this._view) {
       return;
     }
+    
+    const config = vscode.workspace.getConfiguration('aiBookmarks');
+    const currentStyle = config.get<string>('viewStyle') || 'nested';
+    const newStyle = currentStyle === 'nested' ? 'tree' : 'nested';
+    
+    // 更新配置
+    await config.update('viewStyle', newStyle, vscode.ConfigurationTarget.Global);
+
     // 发送消息给 webview 切换 UI 样式
-    // 注意: Webview 内部已经有名为 'toggleViewMode' 的消息处理逻辑用于切换 UI 样式
     this._view.webview.postMessage({
-      type: 'toggleViewMode'
+      type: 'toggleViewMode',
+      viewStyle: newStyle
     });
   }
 
