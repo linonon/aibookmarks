@@ -29,7 +29,8 @@
         {
           "id": "aiBookmarks",
           "name": "Bookmarks",
-          "type": "webview"
+          "type": "webview",
+          "retainContextWhenHidden": true
         }
       ]
     },

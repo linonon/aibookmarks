@@ -53,27 +53,163 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
   /** @type {{ viewMode: 'nested' | 'tree' }} */
   let uiState = { viewMode: 'nested' }; // nested | tree
 
-  // 尝试从持久化状态恢复
+  // 尝试从持久化状态恢复 (完整状态)
   const savedState = vscode.getState();
-  if (savedState && savedState.viewMode) {
-    uiState.viewMode = savedState.viewMode;
-    console.log(`[State] Restored viewMode from state: ${uiState.viewMode}`);
+  if (savedState) {
+    if (savedState.viewMode) {
+      uiState.viewMode = savedState.viewMode;
+    }
+    console.log(`[State] Restored from persisted state:`, {
+      viewMode: savedState.viewMode,
+      collapsedGroups: savedState.collapsedGroups?.length || 0,
+      collapsedBookmarks: savedState.collapsedBookmarks?.length || 0,
+      scrollPosition: savedState.scrollPosition || 0
+    });
   }
-  
+
   /** @type {Set<string>} */
-  let collapsedGroups = new Set();
-  
+  let collapsedGroups = new Set(savedState?.collapsedGroups || []);
+
   /** @type {Set<string>} */
-  let collapsedBookmarks = new Set();
-  
+  let collapsedBookmarks = new Set(savedState?.collapsedBookmarks || []);
+
+  /**
+   * 保存完整状态到 VSCode webview state
+   * 包括: viewMode, collapsedGroups, collapsedBookmarks, scrollPosition
+   */
+  function saveState() {
+    const state = {
+      viewMode: uiState.viewMode,
+      collapsedGroups: Array.from(collapsedGroups),
+      collapsedBookmarks: Array.from(collapsedBookmarks),
+      scrollPosition: bookmarksContainer?.scrollTop || 0,
+      timestamp: Date.now()
+    };
+    vscode.setState(state);
+    console.log('[State] Saved:', {
+      viewMode: state.viewMode,
+      collapsedGroups: state.collapsedGroups.length,
+      collapsedBookmarks: state.collapsedBookmarks.length,
+      scrollPosition: state.scrollPosition
+    });
+  }
+
+  /**
+   * 恢复滚动位置 (需要等待 DOM 渲染完成)
+   */
+  function restoreScrollPosition() {
+    if (savedState?.scrollPosition && bookmarksContainer) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (bookmarksContainer) {
+            bookmarksContainer.scrollTop = savedState.scrollPosition;
+            console.log(`[State] Restored scroll position: ${savedState.scrollPosition}px`);
+          }
+        });
+      });
+    }
+  }
+
   /** @type {{ type: 'group' | 'bookmark', id: string, groupId?: string } | null} */
   let contextMenuTarget = null;
   /** @type {{mode: string, targetBookmarkId: string, groupId: string, parentId: string|null}|null} */
   let addBookmarkContext = null;
 
 
+  // ========================================
+  // 资源预加载缓存系统
+  // ========================================
+
+  /** @type {Record<string, string>} */
+  const cssCache = {};
+
+  /** @type {Record<string, boolean>} */
+  const jsCache = {};
+
   /**
-   * 动态加载模式特定的 CSS 文件
+   * 获取资源基础 URL
+   * @returns {string}
+   */
+  function getBaseUrl() {
+    const mainCssLink = /** @type {HTMLLinkElement | undefined} */ (Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+      .find(link => /** @type {HTMLLinkElement} */ (link).href.includes('sidebar.css')));
+
+    if (mainCssLink) {
+      const mainCssUrl = mainCssLink.href;
+      return mainCssUrl.substring(0, mainCssUrl.lastIndexOf('/') + 1);
+    }
+    return '';
+  }
+
+  /**
+   * 预加载所有视图模式资源 (CSS 和 JS)
+   * 在初始化时并行加载,切换时直接使用缓存
+   * @returns {Promise<void>}
+   */
+  async function preloadAllResources() {
+    console.log('[Preload] Starting resource preload...');
+    const baseUrl = getBaseUrl();
+    if (!baseUrl) {
+      console.warn('[Preload] Could not determine base URL, skipping preload');
+      return;
+    }
+
+    const modes = ['nested', 'tree'];
+    const preloadPromises = [];
+
+    // 并行预加载所有 CSS
+    for (const mode of modes) {
+      const cssFileName = mode === 'tree' ? 'sidebar-tree.css' : 'sidebar-nested.css';
+      const cssUrl = baseUrl + cssFileName;
+
+      preloadPromises.push(
+        fetch(cssUrl)
+          .then(response => response.text())
+          .then(cssText => {
+            cssCache[mode] = cssText;
+            console.log(`[Preload] Cached ${mode} CSS (${cssText.length} chars)`);
+          })
+          .catch(error => {
+            console.error(`[Preload] Failed to cache ${mode} CSS:`, error);
+          })
+      );
+    }
+
+    // 并行预加载所有 JS
+    for (const mode of modes) {
+      const jsFileName = mode === 'tree' ? 'sidebar-tree.js' : 'sidebar-nested.js';
+      const jsUrl = baseUrl + jsFileName;
+
+      preloadPromises.push(
+        new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = jsUrl;
+          script.dataset.mode = mode;
+          script.style.display = 'none'; // 隐藏但加载
+          script.onload = () => {
+            jsCache[mode] = true;
+            console.log(`[Preload] Cached ${mode} JS`);
+            resolve(undefined);
+          };
+          script.onerror = (error) => {
+            console.error(`[Preload] Failed to cache ${mode} JS:`, error);
+            reject(error);
+          };
+          document.head.appendChild(script);
+        })
+      );
+    }
+
+    try {
+      await Promise.all(preloadPromises);
+      console.log('[Preload] All resources preloaded successfully');
+    } catch (error) {
+      console.error('[Preload] Some resources failed to preload:', error);
+    }
+  }
+
+  /**
+   * 动态加载模式特定的 CSS 文件 (使用缓存优化)
    * @param {string} mode - 视图模式 ('nested' | 'tree')
    */
   function loadModeSpecificCSS(mode) {
@@ -83,18 +219,18 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
       existingModeCSS.remove();
     }
 
-    // 获取主 CSS 的基础 URL (从现有的 link 标签中提取)
-    const mainCssLink = /** @type {HTMLLinkElement | undefined} */ (Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
-      .find(link => /** @type {HTMLLinkElement} */ (link).href.includes('sidebar.css')));
-    
-    let baseUrl = '';
-    if (mainCssLink) {
-      // 提取基础 URL (去掉文件名)
-      const mainCssUrl = mainCssLink.href;
-      baseUrl = mainCssUrl.substring(0, mainCssUrl.lastIndexOf('/') + 1);
+    // 优先使用缓存的 CSS (通过 <style> 标签注入,比 <link> 更快)
+    if (cssCache[mode]) {
+      const style = document.createElement('style');
+      style.id = 'mode-specific-css';
+      style.textContent = cssCache[mode];
+      document.head.appendChild(style);
+      console.log(`[CSS] Applied ${mode} CSS from cache (instant)`);
+      return;
     }
 
-    // 加载新的模式特定 CSS
+    // 缓存未命中,回退到动态加载
+    const baseUrl = getBaseUrl();
     const link = document.createElement('link');
     link.id = 'mode-specific-css';
     link.rel = 'stylesheet';
@@ -102,44 +238,35 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
     link.href = baseUrl + fileName;
     document.head.appendChild(link);
 
-    console.log(`[CSS] Loaded ${mode} mode CSS from ${link.href}`);
+    console.log(`[CSS] Loaded ${mode} CSS from network (fallback)`);
   }
 
   /**
-   * 动态加载模式特定的 JS 文件
+   * 动态加载模式特定的 JS 文件 (使用缓存优化)
    * @param {string} mode - 视图模式 ('nested' | 'tree')
    * @returns {Promise<void>}
    */
   function loadModeSpecificJS(mode) {
+    // 优先使用缓存 (JS 已在预加载时执行,无需重新加载)
+    if (jsCache[mode]) {
+      console.log(`[JS] Using preloaded ${mode} JS (instant)`);
+      return Promise.resolve(undefined);
+    }
+
+    // 缓存未命中,回退到动态加载
     return new Promise((resolve, reject) => {
-      // 移除之前加载的模式特定 JS
-      const existingModeJS = document.getElementById('mode-specific-js');
-      if (existingModeJS) {
-        existingModeJS.remove();
-      }
-
-      // 获取主 JS 的基础 URL (从现有的 script 标签中提取)
-      const mainJsScript = /** @type {HTMLScriptElement | undefined} */ (Array.from(document.querySelectorAll('script'))
-        .find(script => /** @type {HTMLScriptElement} */ (script).src.includes('sidebar.js')));
-      
-      let baseUrl = '';
-      if (mainJsScript) {
-        // 提取基础 URL (去掉文件名)
-        const mainJsUrl = mainJsScript.src;
-        baseUrl = mainJsUrl.substring(0, mainJsUrl.lastIndexOf('/') + 1);
-      }
-
-      // 加载新的模式特定 JS
+      const baseUrl = getBaseUrl();
       const script = document.createElement('script');
       script.id = 'mode-specific-js';
       const fileName = mode === 'tree' ? 'sidebar-tree.js' : 'sidebar-nested.js';
       script.src = baseUrl + fileName;
       script.onload = () => {
-        console.log(`[JS] Loaded ${mode} mode JS from ${script.src}`);
-        resolve();
+        console.log(`[JS] Loaded ${mode} JS from network (fallback)`);
+        jsCache[mode] = true; // 更新缓存
+        resolve(undefined);
       };
       script.onerror = (error) => {
-        console.error(`[JS] Failed to load ${mode} mode JS from ${script.src}`, error);
+        console.error(`[JS] Failed to load ${mode} JS:`, error);
         reject(error);
       };
       document.head.appendChild(script);
@@ -164,6 +291,12 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
     await loadModeSpecificJS(uiState.viewMode);
     setupEventListeners();
     console.log('✅✅✅ [INIT] Event listeners setup complete ✅✅✅');
+
+    // 在后台预加载所有资源 (不阻塞初始化)
+    preloadAllResources().catch(error => {
+      console.error('[INIT] Resource preload failed:', error);
+    });
+
     // 通知 Extension 已准备好
     vscode.postMessage({ type: 'ready' });
     console.log('✅✅✅ [INIT] Initialization complete! ✅✅✅');
@@ -268,22 +401,17 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
         } else {
           uiState.viewMode = uiState.viewMode === 'nested' ? 'tree' : 'nested';
         }
-        
-        // 保存状态
-        vscode.setState({ viewMode: uiState.viewMode });
 
-        // 重新加载模式特定的 CSS
+        // 保存完整状态 (包括 collapsed groups/bookmarks)
+        saveState();
+
+        // 🚀 性能优化: 只加载 CSS,不重建 DOM
+        // CSS 切换足以改变视图外观,无需完全重建 DOM 树
         loadModeSpecificCSS(uiState.viewMode);
 
-        // 重新加载模式特定的 JS (异步)
-        loadModeSpecificJS(uiState.viewMode).then(() => {
-          console.log(`[Toggle View Mode] Successfully loaded ${uiState.viewMode} mode JS`);
-          // JS 加载完成后,如果有数据就重新渲染
-          if (currentData.groups) {
-            renderGroups(currentData.groups);
-          }
-        }).catch(error => {
-          console.error('[Toggle View Mode] Failed to load mode-specific JS:', error);
+        // 预加载另一个模式的 JS (后台加载,不阻塞)
+        loadModeSpecificJS(uiState.viewMode).catch(error => {
+          console.error('[Toggle View Mode] Failed to preload mode JS:', error);
         });
 
         // 更新容器 class
@@ -294,10 +422,11 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
             bookmarksContainer.classList.remove('view-mode-tree');
           }
 
-          // 强制重绘
-          bookmarksContainer.style.display = 'none';
-          void bookmarksContainer.offsetHeight;
-          bookmarksContainer.style.display = '';
+          // 使用 CSS 过渡替代强制重排
+          bookmarksContainer.classList.add('view-transitioning');
+          requestAnimationFrame(() => {
+            bookmarksContainer.classList.remove('view-transitioning');
+          });
         }
         break;
     }
@@ -356,9 +485,13 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
     groupsList.style.display = 'block';
     groupsList.innerHTML = groups.map(group => renderGroup(group)).join('');
 
-    // 绑定事件
+    // 🚀 事件委托优化: click 事件通过 handleBookmarkClick 委托
+    // 只绑定无法冒泡的 contextmenu 事件
     bindGroupEvents();
     bindBookmarkEvents();
+
+    // DOM 渲染完成后恢复滚动位置
+    restoreScrollPosition();
   }
 
   // 渲染单个分组
@@ -574,10 +707,21 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
   /** @type {any} */ (window).escapeHtml = escapeHtml;
   /** @type {any} */ (window).formatLocation = formatLocation;
 
-  // 处理书签点击事件 (事件委托)
+  // 处理所有点击事件 (事件委托优化)
   /** @param {MouseEvent} e */
   function handleBookmarkClick(e) {
     hideContextMenu(); // 关闭可能打开的右键菜单
+
+    // 🚀 事件委托优化: 检查是否点击了 group header
+    const groupHeader = /** @type {HTMLElement} */ (e.target).closest('.group-header');
+    if (groupHeader) {
+      e.stopPropagation();
+      const groupId = groupHeader.getAttribute('data-group-id');
+      if (groupId) {
+        toggleGroup(groupId);
+      }
+      return;
+    }
 
     // 检查是否点击了文件链接
     const fileLink = /** @type {HTMLElement} */ (e.target).closest('.file-link');
@@ -669,17 +813,11 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
     }
   }
 
-  // 绑定分组事件
+  // 绑定分组右键菜单事件 (contextmenu 无法冒泡,必须单独绑定)
+  // 🚀 事件委托优化: click 事件已移除,通过 handleBookmarkClick 委托处理
   function bindGroupEvents() {
     document.querySelectorAll('.group-header').forEach(el => {
       const header = /** @type {HTMLElement} */ (el);
-      header.addEventListener('click', (e) => {
-        e.stopPropagation();
-        hideContextMenu(); // 关闭可能打开的右键菜单
-        const groupId = header.getAttribute('data-group-id');
-        if (groupId) toggleGroup(groupId);
-      });
-
       header.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -728,6 +866,9 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
       list.classList.add('collapsed');
     }
 
+    // 保存状态
+    saveState();
+
     vscode.postMessage({ type: 'toggleGroup', groupId, expanded: !collapsedGroups.has(groupId) });
   }
 
@@ -762,6 +903,9 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
         chevron.className = 'icon icon-expand';
       }
     }
+
+    // 保存状态
+    saveState();
 
     vscode.postMessage({ type: 'toggleBookmark', bookmarkId, expanded: !collapsedBookmarks.has(bookmarkId) });
   }
@@ -1671,6 +1815,9 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
     document.querySelectorAll('.children-list').forEach(list => {
       list.classList.remove('collapsed');
     });
+
+    // 保存状态
+    saveState();
   }
 
   // 折叠所有分组
@@ -1684,6 +1831,9 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
     document.querySelectorAll('.bookmarks-list').forEach(list => {
       list.classList.add('collapsed');
     });
+
+    // 保存状态
+    saveState();
   }
 
   // 折叠单个分组
@@ -1700,6 +1850,9 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
     if (list) {
       list.classList.add('collapsed');
     }
+
+    // 保存状态
+    saveState();
   }
 
   // 展开单个分组
@@ -1716,6 +1869,9 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
     if (list) {
       list.classList.remove('collapsed');
     }
+
+    // 保存状态
+    saveState();
   }
 
   // 聚焦到指定书签 (CodeLens 点击时调用)
@@ -1784,6 +1940,9 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
 
     // 6. 高亮当前书签
     bookmarkElement.classList.add('active');
+
+    // 保存状态 (展开了 group 和父书签)
+    saveState();
 
     // 7. 滚动到书签位置
     setTimeout(() => {

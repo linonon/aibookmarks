@@ -115,6 +115,12 @@ body {
   overflow-x: hidden;
 }
 
+/* View Transitioning - 替代强制重排,使用 GPU 加速 */
+.bookmarks-container.view-transitioning {
+  opacity: 0.95;
+  transition: opacity 100ms ease-out;
+}
+
 /* Empty States */
 .empty-state {
   display: flex;
