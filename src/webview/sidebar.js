@@ -652,7 +652,8 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
       <div class="bookmark-container ${hasChildren ? 'has-children' : ''} ${isCollapsed ? 'collapsed' : ''}"
            data-bookmark-id="${escapeHtml(bookmark.id)}"
            data-group-id="${escapeHtml(groupId)}"
-           data-depth="${depth}">
+           data-depth="${depth}"
+           style="--indent-level: ${depth}">
         <div class="bookmark-item"
              data-category="${escapeHtml(category)}">
 

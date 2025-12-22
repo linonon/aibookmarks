@@ -53,7 +53,7 @@
 
 /* Tree 模式下的 location (更低的 opacity, 单色字体) */
 .view-mode-tree .bookmark-location {
-  font-size: 10px !important;
+  font-size: var(--font-size-location) !important;
   opacity: 0.75;  /* 从 0.5 提高到 0.75 */
   margin-left: auto;
   font-family: 'Courier New', Courier, monospace;

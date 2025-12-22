@@ -1448,7 +1448,7 @@ body {
 
 .view-mode-tree .group-name {
 
-  font-size: 11px !important;
+  font-size: var(--font-size-group-name) !important;
 
   text-transform: uppercase;
 
@@ -1670,7 +1670,7 @@ body {
 
   font-family: var(--vscode-font-family);
 
-  font-size: 12px !important;
+  font-size: var(--font-size-title) !important;
 
   font-weight: 400 !important;
 
@@ -1682,7 +1682,7 @@ body {
 
 .view-mode-tree .bookmark-location {
 
-  font-size: 10px !important;
+  font-size: var(--font-size-location) !important;
 
   opacity: 0.5;
 
@@ -1756,16 +1756,28 @@ body {
 
 
 
-/* 10. 描述文本 (Description) - 默认隐藏，hover 或 active 时可显示，或者一直微弱显示 */
-
+/* 10. 描述文本 (Description) - Tree 模式也显示描述，并支持展开/折叠 */
 .view-mode-tree .bookmark-description-wrapper {
-
+  display: grid;
+  grid-template-columns: 
+    [indent] calc(var(--indent-level, 0) * 16px)
+    [chevron] auto
+    [badge] auto
+    [content] 1fr;
+  gap: 4px;
+  align-items: start;
   margin-top: 2px;
+  padding: 0 8px; /* 与 header 的 padding 保持一致 */
+}
 
-  margin-left: 20px; /* 与标题对齐 */
+.view-mode-tree .bookmark-action-buttons {
+  grid-column: badge; /* 将展开按钮放在 badge 列，与标题对齐 */
+  justify-self: center;
+}
 
-  display: none; /* 默认隐藏描述，保持树形整洁 */
-
+.view-mode-tree .bookmark-description {
+  grid-column: content;
+  margin-left: 0;
 }
 
 
