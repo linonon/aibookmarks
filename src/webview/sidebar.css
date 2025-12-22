@@ -298,25 +298,28 @@ body {
   flex-shrink: 0;
 }
 
-/* Group Info - name 和 query 在同一行 */
+/* Group Info - name 和 query 分两行显示 */
 .group-info {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;  /* 改为纵向排列 */
+  align-items: flex-start; /* 左对齐 */
+  justify-content: center;
+  gap: 2px;               /* 减小间距 */
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  padding: 2px 0;         /* 增加一点垂直内边距 */
 }
 
 .group-name {
   font-size: var(--font-size-group-name);
-  font-weight: 700;       /* 从 600 加粗到 700 */
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
-  letter-spacing: 0.2px;  /* 增加字间距，更醒目 */
-  flex-shrink: 1;
+  letter-spacing: 0.2px;
+  flex-shrink: 0;         /* 不收缩，保证标题完整 */
 }
 
 /* 数字徽章 - 更醒目的设计 */
@@ -338,26 +341,29 @@ body {
   box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
 }
 
-/* 问题说明 - 内联显示在 header 右侧 */
+/* 问题说明 - 仿照书签 Description 设计 */
 .group-query {
-  font-size: 10px;
+  font-size: var(--font-size-description);
   color: var(--vscode-descriptionForeground);
-  padding: 3px 8px;       /* 紧凑的内边距 */
-  margin: 0;              /* 去掉 margin, gap 已处理间距 */
-  border-radius: 4px;
-  white-space: nowrap;
+  padding: 0;
+  margin: 0;
+  opacity: 0.7;
+  min-width: 0;
+  flex-shrink: 1;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+
+  /* 默认显示 1 行，和书签 Description 逻辑一致 */
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-style: italic;
-  opacity: 0.7;
-  min-width: 0;           /* 允许缩小 */
-  flex-shrink: 1;
+}
 
-  /* 微妙的背景色 */
-  background-color: rgba(59, 130, 246, 0.06);
-
-  /* 微妙的边框 */
-  border: 1px solid rgba(59, 130, 246, 0.15);
+.group-query:hover {
+  opacity: 0.9;
 }
 
 /* Bookmarks List - 书签容器样式 */
@@ -1067,22 +1073,26 @@ body {
 
 /* ==================== Markdown 渲染样式 ==================== */
 
-.bookmark-description p {
+.bookmark-description p,
+.group-query p {
   margin: 0;
   padding: 0;
 }
 
-.bookmark-description strong {
+.bookmark-description strong,
+.group-query strong {
   font-weight: 600;
   color: #ffffff;
 }
 
-.bookmark-description em {
+.bookmark-description em,
+.group-query em {
   font-style: italic;
   color: #e0e0e0;
 }
 
-.bookmark-description code {
+.bookmark-description code,
+.group-query code {
   background: rgba(255, 255, 255, 0.1);
   padding: 1px 4px;
   border-radius: 3px;

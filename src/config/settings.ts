@@ -19,6 +19,7 @@ export interface HierarchyColorConfig {
   depth5: string;
   depth6: string;
   depth7: string;
+  [key: string]: string;
 }
 
 // 配置管理器

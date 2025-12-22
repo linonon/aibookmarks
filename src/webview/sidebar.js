@@ -320,7 +320,7 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
 
   /**
    * 更新层级颜色 CSS 变量
-   * @param {Object} config - 颜色配置对象
+   * @param {any} config - 颜色配置对象
    */
   function updateHierarchyColors(config) {
     const root = document.documentElement;
@@ -535,7 +535,13 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
           </span>
           <div class="group-info">
             <span class="group-name">${escapeHtml(group.name)}</span>
-            ${group.query ? `<span class="group-query" title="${escapeHtml(group.query)}">Q: ${escapeHtml(group.query)}</span>` : ''}
+            ${group.query ? `
+              <div class="group-query" 
+                   data-group-id="${escapeHtml(group.id)}"
+                   title="${escapeHtml(group.query)}">
+                ${renderMarkdown(group.query)}
+              </div>
+            ` : ''}
           </div>
           <span class="group-count">${bookmarkCount}</span>
         </div>
