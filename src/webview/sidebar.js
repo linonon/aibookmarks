@@ -51,7 +51,7 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
   let currentData = { groups: [], viewMode: 'group' };
   
   /** @type {{ viewMode: 'nested' | 'tree' }} */
-  let uiState = { viewMode: 'nested' }; // nested | tree
+  let uiState = { viewMode: 'tree' }; // nested | tree
 
   // 尝试从持久化状态恢复 (完整状态)
   const savedState = vscode.getState();

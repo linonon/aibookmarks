@@ -23,8 +23,9 @@ function renderBookmarkHeaderTree(bookmark, hasChildren, isCollapsed, depth = 0)
     return parts[parts.length - 1];
   });
 
+  // Tree 模式下缩进由容器 margin 处理, 这里的 indent 设为 0 以保证箭头靠左
   return `
-    <div class="bookmark-header" style="--indent-level: ${depth}">
+    <div class="bookmark-header" style="--indent-level: 0">
       <div class="bookmark-indent"></div>
       <span class="bookmark-chevron">${hasChildren ? `<span class="icon ${isCollapsed ? 'icon-expand' : 'icon-collapse'}"></span>` : ''}</span>
       ${bookmark.order ? `<span class="order-badge">${bookmark.order}</span>` : ''}

@@ -898,10 +898,6 @@ body {
 
 .bookmark-description:hover {
   opacity: 0.85;
-  background-color: rgba(255, 255, 255, 0.05);
-  border-radius: 3px;
-  padding: 2px 4px;
-  margin: -2px -4px;
 }
 
 /* 展开状态 */
@@ -1523,12 +1519,9 @@ body {
 /* 4. 书签项 (Bookmark Item) - 单行布局 */
 
 .view-mode-tree .bookmark-item {
-
   display: flex !important;
-
   align-items: center !important;
-
-  padding: 3px 6px !important;
+  padding: 3px 2px !important;
 
   border-radius: 3px !important;
 
@@ -1651,15 +1644,7 @@ body {
 
 
 .view-mode-tree .bookmark-header {
-
-  display: flex !important;
-
-  align-items: center !important;
-
   width: 100%;
-
-  gap: 6px !important;
-
 }
 
 
@@ -1733,17 +1718,11 @@ body {
 /* 9. 连接线 (Guide Lines) - 核心部分 - 增强版 */
 
 .view-mode-tree .children-list {
-
   display: block;
-
-  margin-left: 16px !important; /* 增加子级缩进 10px→16px */
-
-  padding-left: 12px !important; /* 增加内边距 10px→12px */
-
-  border-left: 2px solid var(--vscode-tree-indentGuidesStroke, rgba(100, 100, 100, 0.6)) !important; /* 加粗连接线 1px→2px，提高不透明度 */
-
+  margin-left: 8px !important; /* 减小到 8px，仅保留引导线位置 */
+  padding-left: 0 !important;
+  border-left: 1px solid var(--vscode-tree-indentGuidesStroke, rgba(100, 100, 100, 0.3)) !important;
   position: relative;
-
 }
 
 
@@ -1760,14 +1739,14 @@ body {
 .view-mode-tree .bookmark-description-wrapper {
   display: grid;
   grid-template-columns: 
-    [indent] calc(var(--indent-level, 0) * 16px)
-    [chevron] auto
+    [indent] 0px
+    [chevron] 16px
     [badge] auto
     [content] 1fr;
-  gap: 4px;
+  gap: 0;
   align-items: start;
   margin-top: 2px;
-  padding: 0 8px; /* 与 header 的 padding 保持一致 */
+  padding: 0 2px; /* 与 header 的 padding 保持一致 */
 }
 
 .view-mode-tree .bookmark-action-buttons {
@@ -1831,25 +1810,15 @@ body {
 
 
 /* 12. 水平连接线 - 增强树状结构视觉效果 */
-
 .view-mode-tree .bookmark-container::before {
-
   content: '';
-
   position: absolute;
-
-  left: -14px; /* 位置调整 */
-
+  left: -8px; /* 匹配 .children-list 的 margin-left */
   top: 50%;
-
-  width: 8px; /* 水平线长度 */
-
-  height: 2px;
-
-  background-color: var(--vscode-tree-indentGuidesStroke, rgba(100, 100, 100, 0.6));
-
+  width: 6px; /* 缩短长度 */
+  height: 1px; /* 变细一点 */
+  background-color: var(--vscode-tree-indentGuidesStroke, rgba(100, 100, 100, 0.3));
   pointer-events: none;
-
 }
 
 

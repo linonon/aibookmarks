@@ -362,7 +362,7 @@
             "nested",
             "tree"
           ],
-          "default": "nested",
+          "default": "tree",
           "description": "UI style for bookmarks: 'nested' (hierarchical) or 'tree' (flat list with tree structure)"
         },
         "aiBookmarks.quickAddMode": {

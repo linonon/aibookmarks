@@ -1,16 +1,16 @@
 /* ==================== Tree 模式特定样式 (Grid 布局改进) ==================== */
 
 /* Bookmark Header - Grid 布局 */
-.bookmark-header {
+.view-mode-tree .bookmark-header {
   display: grid;
   grid-template-columns:
-    [indent] calc(var(--indent-level, 0) * 16px)
-    [chevron] auto
+    [indent] calc(var(--indent-level, 0) * 12px)
+    [chevron] 16px
     [badge] auto
     [content] 1fr;
-  gap: 4px;
+  gap: 0;
   align-items: center;
-  padding: 4px 8px;
+  padding: 4px 2px;
   cursor: pointer;
   transition: background-color 0.2s;
 }
@@ -78,29 +78,9 @@
   position: relative;
 }
 
-/* 截断渐变遮罩 - 提示有更多内容 */
-.bookmark-description:not(.expanded)::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 40px;
-  height: 1.5em;
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--vscode-sideBar-background)
-  );
-  pointer-events: none;
-}
-
 .bookmark-description.expanded {
   -webkit-line-clamp: unset;
   display: block;
-}
-
-.bookmark-description.expanded::after {
-  display: none;
 }
 
 /* 展开/折叠按钮增强 */
