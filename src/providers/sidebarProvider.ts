@@ -32,10 +32,11 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
       })
     );
 
-    // 监听字体配置变化, 更新 CSS 变量
+    // 监听配置变化 (字体、层级颜色等), 更新 CSS 变量
     this._disposables.push(
       ConfigManager.onConfigChanged(() => {
         this.updateFontSize();
+        this.updateHierarchyColors();
       })
     );
 
@@ -106,8 +107,9 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
       }
     });
 
-    // 同时发送字体配置
+    // 同时发送字体和颜色配置
     this.updateFontSize();
+    this.updateHierarchyColors();
   }
 
   /**
@@ -122,6 +124,21 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
     this._view.webview.postMessage({
       type: 'updateFontSize',
       config: fontSize
+    });
+  }
+
+  /**
+   * 更新层级颜色配置
+   */
+  private updateHierarchyColors(): void {
+    if (!this._view) {
+      return;
+    }
+
+    const colors = ConfigManager.getHierarchyColorConfig();
+    this._view.webview.postMessage({
+      type: 'updateHierarchyColors',
+      config: colors
     });
   }
 

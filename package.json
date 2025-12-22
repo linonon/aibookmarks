@@ -424,6 +424,54 @@
           "minimum": 0.5,
           "maximum": 2.5,
           "markdownDescription": "全局字体缩放倍数。设置后会覆盖上面的独立配置。\n\n**建议**：一般情况下调整独立配置即可，此选项用于快速整体缩放。"
+        },
+        "aiBookmarks.hierarchyColors.depth0": {
+          "type": "string",
+          "default": "#3b82f6",
+          "format": "color-hex",
+          "description": "Hierarchy Depth 0 color (Standard: Blue)"
+        },
+        "aiBookmarks.hierarchyColors.depth1": {
+          "type": "string",
+          "default": "#8b5cf6",
+          "format": "color-hex",
+          "description": "Hierarchy Depth 1 color (Standard: Purple)"
+        },
+        "aiBookmarks.hierarchyColors.depth2": {
+          "type": "string",
+          "default": "#06b6d4",
+          "format": "color-hex",
+          "description": "Hierarchy Depth 2 color (Standard: Cyan)"
+        },
+        "aiBookmarks.hierarchyColors.depth3": {
+          "type": "string",
+          "default": "#22c55e",
+          "format": "color-hex",
+          "description": "Hierarchy Depth 3 color (Standard: Green)"
+        },
+        "aiBookmarks.hierarchyColors.depth4": {
+          "type": "string",
+          "default": "#eab308",
+          "format": "color-hex",
+          "description": "Hierarchy Depth 4 color (Standard: Yellow)"
+        },
+        "aiBookmarks.hierarchyColors.depth5": {
+          "type": "string",
+          "default": "#fb923c",
+          "format": "color-hex",
+          "description": "Hierarchy Depth 5 color (Standard: Orange)"
+        },
+        "aiBookmarks.hierarchyColors.depth6": {
+          "type": "string",
+          "default": "#ef4444",
+          "format": "color-hex",
+          "description": "Hierarchy Depth 6 color (Standard: Red)"
+        },
+        "aiBookmarks.hierarchyColors.depth7": {
+          "type": "string",
+          "default": "#ec4899",
+          "format": "color-hex",
+          "description": "Hierarchy Depth 7 color (Standard: Pink)"
         }
       }
     }

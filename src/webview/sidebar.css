@@ -6,6 +6,16 @@
   --color-issue: #ef4444;
   --color-note: #6b7280;
 
+  /* Hierarchy Depth Colors (Standard Nested) */
+  --depth-0-color: #3b82f6; /* Blue */
+  --depth-1-color: #8b5cf6; /* Purple */
+  --depth-2-color: #06b6d4; /* Cyan */
+  --depth-3-color: #22c55e; /* Green */
+  --depth-4-color: #eab308; /* Yellow */
+  --depth-5-color: #fb923c; /* Orange */
+  --depth-6-color: #ef4444; /* Red */
+  --depth-7-color: #ec4899; /* Pink */
+
   /* Layout */
   --sidebar-padding: 12px;
   --item-spacing: 2px;
@@ -419,235 +429,195 @@ body {
 }
 
 /* 层级样式 - 嵌套容器设计 (俄罗斯套娃风格) */
-/* depth=0: 蓝色容器 */
+/* depth=0: Blue */
 .bookmark-container[data-depth="0"] {
-  border-color: rgba(59, 130, 246, 0.3);
-  box-shadow: 0 0 4px rgba(59, 130, 246, 0.15);
+  border-color: color-mix(in srgb, var(--depth-0-color) 30%, transparent);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--depth-0-color) 15%, transparent);
 }
-
 .bookmark-container[data-depth="0"] > .bookmark-item {
-  background-color: rgba(59, 130, 246, 0.05);
+  background-color: color-mix(in srgb, var(--depth-0-color) 5%, transparent);
 }
-
 .bookmark-container[data-depth="0"]:hover {
-  border-color: rgba(59, 130, 246, 0.5);
-  box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+  border-color: color-mix(in srgb, var(--depth-0-color) 50%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--depth-0-color) 30%, transparent);
 }
-
 .bookmark-container[data-depth="0"]:hover > .bookmark-item {
-  background-color: rgba(59, 130, 246, 0.1);
+  background-color: color-mix(in srgb, var(--depth-0-color) 10%, transparent);
 }
-
 .bookmark-container[data-depth="0"].active {
-  border-color: rgba(59, 130, 246, 0.7);
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+  border-color: color-mix(in srgb, var(--depth-0-color) 70%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--depth-0-color) 40%, transparent);
 }
-
 .bookmark-container[data-depth="0"].active > .bookmark-item {
-  background-color: rgba(59, 130, 246, 0.3) !important;
+  background-color: color-mix(in srgb, var(--depth-0-color) 30%, transparent) !important;
 }
 
-/* depth=1: 紫色容器 */
+/* depth=1: Purple */
 .bookmark-container[data-depth="1"] {
-  border-color: rgba(139, 92, 246, 0.3);
-  box-shadow: 0 0 4px rgba(139, 92, 246, 0.15);
+  border-color: color-mix(in srgb, var(--depth-1-color) 30%, transparent);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--depth-1-color) 15%, transparent);
 }
-
 .bookmark-container[data-depth="1"] > .bookmark-item {
-  background-color: rgba(139, 92, 246, 0.08);
+  background-color: color-mix(in srgb, var(--depth-1-color) 8%, transparent);
   padding-left: 8px;
 }
-
 .bookmark-container[data-depth="1"]:hover {
-  border-color: rgba(139, 92, 246, 0.5);
-  box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
+  border-color: color-mix(in srgb, var(--depth-1-color) 50%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--depth-1-color) 30%, transparent);
 }
-
 .bookmark-container[data-depth="1"]:hover > .bookmark-item {
-  background-color: rgba(139, 92, 246, 0.15);
+  background-color: color-mix(in srgb, var(--depth-1-color) 15%, transparent);
 }
-
 .bookmark-container[data-depth="1"].active {
-  border-color: rgba(139, 92, 246, 0.7);
-  box-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
+  border-color: color-mix(in srgb, var(--depth-1-color) 70%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--depth-1-color) 40%, transparent);
 }
-
 .bookmark-container[data-depth="1"].active > .bookmark-item {
-  background-color: rgba(139, 92, 246, 0.3) !important;
+  background-color: color-mix(in srgb, var(--depth-1-color) 30%, transparent) !important;
 }
 
-/* depth=2: 青色容器 */
+/* depth=2: Cyan */
 .bookmark-container[data-depth="2"] {
-  border-color: rgba(6, 182, 212, 0.3);
-  box-shadow: 0 0 4px rgba(6, 182, 212, 0.15);
+  border-color: color-mix(in srgb, var(--depth-2-color) 30%, transparent);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--depth-2-color) 15%, transparent);
 }
-
 .bookmark-container[data-depth="2"] > .bookmark-item {
-  background-color: rgba(6, 182, 212, 0.12);
+  background-color: color-mix(in srgb, var(--depth-2-color) 12%, transparent);
   padding-left: 16px;
 }
-
 .bookmark-container[data-depth="2"]:hover {
-  border-color: rgba(6, 182, 212, 0.5);
-  box-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
+  border-color: color-mix(in srgb, var(--depth-2-color) 50%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--depth-2-color) 30%, transparent);
 }
-
 .bookmark-container[data-depth="2"]:hover > .bookmark-item {
-  background-color: rgba(6, 182, 212, 0.2);
+  background-color: color-mix(in srgb, var(--depth-2-color) 20%, transparent);
 }
-
 .bookmark-container[data-depth="2"].active {
-  border-color: rgba(6, 182, 212, 0.7);
-  box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
+  border-color: color-mix(in srgb, var(--depth-2-color) 70%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--depth-2-color) 40%, transparent);
 }
-
 .bookmark-container[data-depth="2"].active > .bookmark-item {
-  background-color: rgba(6, 182, 212, 0.35) !important;
+  background-color: color-mix(in srgb, var(--depth-2-color) 35%, transparent) !important;
 }
 
-/* depth=3: 绿色容器 */
+/* depth=3: Green */
 .bookmark-container[data-depth="3"] {
-  border-color: rgba(34, 197, 94, 0.3);
-  box-shadow: 0 0 4px rgba(34, 197, 94, 0.15);
+  border-color: color-mix(in srgb, var(--depth-3-color) 30%, transparent);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--depth-3-color) 15%, transparent);
 }
-
 .bookmark-container[data-depth="3"] > .bookmark-item {
-  background-color: rgba(34, 197, 94, 0.16);
+  background-color: color-mix(in srgb, var(--depth-3-color) 16%, transparent);
   padding-left: 24px;
 }
-
 .bookmark-container[data-depth="3"]:hover {
-  border-color: rgba(34, 197, 94, 0.5);
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.3);
+  border-color: color-mix(in srgb, var(--depth-3-color) 50%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--depth-3-color) 30%, transparent);
 }
-
 .bookmark-container[data-depth="3"]:hover > .bookmark-item {
-  background-color: rgba(34, 197, 94, 0.25);
+  background-color: color-mix(in srgb, var(--depth-3-color) 25%, transparent);
 }
-
 .bookmark-container[data-depth="3"].active {
-  border-color: rgba(34, 197, 94, 0.7);
-  box-shadow: 0 0 12px rgba(34, 197, 94, 0.4);
+  border-color: color-mix(in srgb, var(--depth-3-color) 70%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--depth-3-color) 40%, transparent);
 }
-
 .bookmark-container[data-depth="3"].active > .bookmark-item {
-  background-color: rgba(34, 197, 94, 0.4) !important;
+  background-color: color-mix(in srgb, var(--depth-3-color) 40%, transparent) !important;
 }
 
-/* depth=4: 黄色容器 */
+/* depth=4: Yellow */
 .bookmark-container[data-depth="4"] {
-  border-color: rgba(234, 179, 8, 0.3);
-  box-shadow: 0 0 4px rgba(234, 179, 8, 0.15);
+  border-color: color-mix(in srgb, var(--depth-4-color) 30%, transparent);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--depth-4-color) 15%, transparent);
 }
-
 .bookmark-container[data-depth="4"] > .bookmark-item {
-  background-color: rgba(234, 179, 8, 0.08);
+  background-color: color-mix(in srgb, var(--depth-4-color) 8%, transparent);
   padding-left: 32px;
 }
-
 .bookmark-container[data-depth="4"]:hover {
-  border-color: rgba(234, 179, 8, 0.5);
-  box-shadow: 0 0 8px rgba(234, 179, 8, 0.3);
+  border-color: color-mix(in srgb, var(--depth-4-color) 50%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--depth-4-color) 30%, transparent);
 }
-
 .bookmark-container[data-depth="4"]:hover > .bookmark-item {
-  background-color: rgba(234, 179, 8, 0.15);
+  background-color: color-mix(in srgb, var(--depth-4-color) 15%, transparent);
 }
-
 .bookmark-container[data-depth="4"].active {
-  border-color: rgba(234, 179, 8, 0.7);
-  box-shadow: 0 0 12px rgba(234, 179, 8, 0.4);
+  border-color: color-mix(in srgb, var(--depth-4-color) 70%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--depth-4-color) 40%, transparent);
 }
-
 .bookmark-container[data-depth="4"].active > .bookmark-item {
-  background-color: rgba(234, 179, 8, 0.35) !important;
+  background-color: color-mix(in srgb, var(--depth-4-color) 35%, transparent) !important;
 }
 
-/* depth=5: 橙色容器 */
+/* depth=5: Orange */
 .bookmark-container[data-depth="5"] {
-  border-color: rgba(251, 146, 60, 0.3);
-  box-shadow: 0 0 4px rgba(251, 146, 60, 0.15);
+  border-color: color-mix(in srgb, var(--depth-5-color) 30%, transparent);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--depth-5-color) 15%, transparent);
 }
-
 .bookmark-container[data-depth="5"] > .bookmark-item {
-  background-color: rgba(251, 146, 60, 0.08);
+  background-color: color-mix(in srgb, var(--depth-5-color) 8%, transparent);
   padding-left: 40px;
 }
-
 .bookmark-container[data-depth="5"]:hover {
-  border-color: rgba(251, 146, 60, 0.5);
-  box-shadow: 0 0 8px rgba(251, 146, 60, 0.3);
+  border-color: color-mix(in srgb, var(--depth-5-color) 50%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--depth-5-color) 30%, transparent);
 }
-
 .bookmark-container[data-depth="5"]:hover > .bookmark-item {
-  background-color: rgba(251, 146, 60, 0.15);
+  background-color: color-mix(in srgb, var(--depth-5-color) 15%, transparent);
 }
-
 .bookmark-container[data-depth="5"].active {
-  border-color: rgba(251, 146, 60, 0.7);
-  box-shadow: 0 0 12px rgba(251, 146, 60, 0.4);
+  border-color: color-mix(in srgb, var(--depth-5-color) 70%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--depth-5-color) 40%, transparent);
 }
-
 .bookmark-container[data-depth="5"].active > .bookmark-item {
-  background-color: rgba(251, 146, 60, 0.35) !important;
+  background-color: color-mix(in srgb, var(--depth-5-color) 35%, transparent) !important;
 }
 
-/* depth=6: 红色容器 */
+/* depth=6: Red */
 .bookmark-container[data-depth="6"] {
-  border-color: rgba(239, 68, 68, 0.3);
-  box-shadow: 0 0 4px rgba(239, 68, 68, 0.15);
+  border-color: color-mix(in srgb, var(--depth-6-color) 30%, transparent);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--depth-6-color) 15%, transparent);
 }
-
 .bookmark-container[data-depth="6"] > .bookmark-item {
-  background-color: rgba(239, 68, 68, 0.08);
+  background-color: color-mix(in srgb, var(--depth-6-color) 8%, transparent);
   padding-left: 48px;
 }
-
 .bookmark-container[data-depth="6"]:hover {
-  border-color: rgba(239, 68, 68, 0.5);
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+  border-color: color-mix(in srgb, var(--depth-6-color) 50%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--depth-6-color) 30%, transparent);
 }
-
 .bookmark-container[data-depth="6"]:hover > .bookmark-item {
-  background-color: rgba(239, 68, 68, 0.15);
+  background-color: color-mix(in srgb, var(--depth-6-color) 15%, transparent);
 }
-
 .bookmark-container[data-depth="6"].active {
-  border-color: rgba(239, 68, 68, 0.7);
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+  border-color: color-mix(in srgb, var(--depth-6-color) 70%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--depth-6-color) 40%, transparent);
 }
-
 .bookmark-container[data-depth="6"].active > .bookmark-item {
-  background-color: rgba(239, 68, 68, 0.35) !important;
+  background-color: color-mix(in srgb, var(--depth-6-color) 35%, transparent) !important;
 }
 
-/* depth=7: 粉色容器 */
+/* depth=7: Pink */
 .bookmark-container[data-depth="7"] {
-  border-color: rgba(236, 72, 153, 0.3);
-  box-shadow: 0 0 4px rgba(236, 72, 153, 0.15);
+  border-color: color-mix(in srgb, var(--depth-7-color) 30%, transparent);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--depth-7-color) 15%, transparent);
 }
-
 .bookmark-container[data-depth="7"] > .bookmark-item {
-  background-color: rgba(236, 72, 153, 0.08);
+  background-color: color-mix(in srgb, var(--depth-7-color) 8%, transparent);
   padding-left: 56px;
 }
-
 .bookmark-container[data-depth="7"]:hover {
-  border-color: rgba(236, 72, 153, 0.5);
-  box-shadow: 0 0 8px rgba(236, 72, 153, 0.3);
+  border-color: color-mix(in srgb, var(--depth-7-color) 50%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--depth-7-color) 30%, transparent);
 }
-
 .bookmark-container[data-depth="7"]:hover > .bookmark-item {
-  background-color: rgba(236, 72, 153, 0.15);
+  background-color: color-mix(in srgb, var(--depth-7-color) 15%, transparent);
 }
-
 .bookmark-container[data-depth="7"].active {
-  border-color: rgba(236, 72, 153, 0.7);
-  box-shadow: 0 0 12px rgba(236, 72, 153, 0.4);
+  border-color: color-mix(in srgb, var(--depth-7-color) 70%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--depth-7-color) 40%, transparent);
 }
-
 .bookmark-container[data-depth="7"].active > .bookmark-item {
-  background-color: rgba(236, 72, 153, 0.35) !important;
+  background-color: color-mix(in srgb, var(--depth-7-color) 35%, transparent) !important;
 }
 
 /* Bookmark Content - 改进布局 */
@@ -1680,38 +1650,32 @@ body {
 
 
 /* 8. 排序徽章 (Order Badge) - 增强版 */
-
 .view-mode-tree .order-badge {
-
   display: flex;
-
   align-items: center;
-
   justify-content: center;
-
-  min-width: 18px; /* 增大尺寸 14px→18px */
-
-  height: 18px;   /* 增大尺寸 14px→18px */
-
-  border-radius: 4px; /* 更圆润 3px→4px */
-
-  background-color: var(--vscode-badge-background); /* 使用 badge 背景色，更明显 */
-
-  color: var(--vscode-badge-foreground); /* 使用 badge 前景色 */
-
-  font-size: 10px; /* 增大字体 9px→10px */
-
-  font-weight: 700; /* 加粗 600→700 */
-
-  margin-right: 6px; /* 增加间距 4px→6px */
-
-  padding: 0 3px; /* 增加内边距 */
-
+  min-width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background-color: var(--badge-bg, var(--vscode-badge-background));
+  color: var(--badge-fg, var(--vscode-badge-foreground));
+  font-size: 10px;
+  font-weight: 700;
+  margin-right: 6px;
+  padding: 0 3px;
   flex-shrink: 0;
-
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); /* 添加阴影 */
-
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
+
+/* Tree View Depth Colors for Badge */
+.view-mode-tree .bookmark-container[data-depth="0"] .order-badge { --badge-bg: var(--depth-0-color); --badge-fg: #ffffff; }
+.view-mode-tree .bookmark-container[data-depth="1"] .order-badge { --badge-bg: var(--depth-1-color); --badge-fg: #ffffff; }
+.view-mode-tree .bookmark-container[data-depth="2"] .order-badge { --badge-bg: var(--depth-2-color); --badge-fg: #ffffff; }
+.view-mode-tree .bookmark-container[data-depth="3"] .order-badge { --badge-bg: var(--depth-3-color); --badge-fg: #ffffff; }
+.view-mode-tree .bookmark-container[data-depth="4"] .order-badge { --badge-bg: var(--depth-4-color); --badge-fg: #ffffff; }
+.view-mode-tree .bookmark-container[data-depth="5"] .order-badge { --badge-bg: var(--depth-5-color); --badge-fg: #ffffff; }
+.view-mode-tree .bookmark-container[data-depth="6"] .order-badge { --badge-bg: var(--depth-6-color); --badge-fg: #ffffff; }
+.view-mode-tree .bookmark-container[data-depth="7"] .order-badge { --badge-bg: var(--depth-7-color); --badge-fg: #ffffff; }
 
 
 

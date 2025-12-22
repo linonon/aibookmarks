@@ -9,9 +9,38 @@ export interface FontSizeConfig {
   scale: number;
 }
 
+// 层级颜色配置接口
+export interface HierarchyColorConfig {
+  depth0: string;
+  depth1: string;
+  depth2: string;
+  depth3: string;
+  depth4: string;
+  depth5: string;
+  depth6: string;
+  depth7: string;
+}
+
 // 配置管理器
 export class ConfigManager {
   private static readonly SECTION = 'aiBookmarks';
+
+  /**
+   * 读取层级颜色配置
+   */
+  static getHierarchyColorConfig(): HierarchyColorConfig {
+    const config = vscode.workspace.getConfiguration(this.SECTION);
+    return {
+      depth0: config.get<string>('hierarchyColors.depth0', '#3b82f6'),
+      depth1: config.get<string>('hierarchyColors.depth1', '#8b5cf6'),
+      depth2: config.get<string>('hierarchyColors.depth2', '#06b6d4'),
+      depth3: config.get<string>('hierarchyColors.depth3', '#22c55e'),
+      depth4: config.get<string>('hierarchyColors.depth4', '#eab308'),
+      depth5: config.get<string>('hierarchyColors.depth5', '#fb923c'),
+      depth6: config.get<string>('hierarchyColors.depth6', '#ef4444'),
+      depth7: config.get<string>('hierarchyColors.depth7', '#ec4899'),
+    };
+  }
 
   /**
    * 读取字体配置
@@ -46,14 +75,17 @@ export class ConfigManager {
   }
 
   /**
-   * 监听字体配置变化
+   * 监听字体或颜色配置变化
    *
    * @param callback 配置变化时的回调函数
    * @returns Disposable 对象, 用于取消监听
    */
   static onConfigChanged(callback: () => void): vscode.Disposable {
     return vscode.workspace.onDidChangeConfiguration(e => {
-      if (e.affectsConfiguration(`${this.SECTION}.fontSize`)) {
+      if (
+        e.affectsConfiguration(`${this.SECTION}.fontSize`) ||
+        e.affectsConfiguration(`${this.SECTION}.hierarchyColors`)
+      ) {
         callback();
       }
     });

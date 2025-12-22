@@ -318,6 +318,20 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
     root.style.setProperty('--font-size-location', `${config.location}px`);
   }
 
+  /**
+   * 更新层级颜色 CSS 变量
+   * @param {Object} config - 颜色配置对象
+   */
+  function updateHierarchyColors(config) {
+    const root = document.documentElement;
+    for (let i = 0; i <= 7; i++) {
+      const color = config[`depth${i}`];
+      if (color) {
+        root.style.setProperty(`--depth-${i}-color`, color);
+      }
+    }
+  }
+
   // 设置事件监听
   function setupEventListeners() {
     console.log('[Setup] Initializing event listeners...');
@@ -392,6 +406,11 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
       case 'updateFontSize':
         if (message.config) {
           updateFontSize(message.config);
+        }
+        break;
+      case 'updateHierarchyColors':
+        if (message.config) {
+          updateHierarchyColors(message.config);
         }
         break;
       case 'toggleViewMode':
