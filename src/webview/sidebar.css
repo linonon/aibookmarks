@@ -1269,6 +1269,28 @@ body {
   background-color: var(--vscode-toolbar-hoverBackground);
 }
 
+/* 新增书签面板 */
+.add-bookmark-panel {
+  padding: 12px;
+  background: var(--vscode-sideBar-background);
+  border-bottom: 1px solid var(--vscode-divider);
+  margin-bottom: 16px;
+  animation: slideDown 0.2s ease-out;
+}
+
+.add-bookmark-panel .panel-header h3 {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  opacity: 0.9;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* 编辑表单容器 */
 .bookmark-edit-form {
   padding: 12px;

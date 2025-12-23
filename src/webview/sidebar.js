@@ -1242,6 +1242,11 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
         <span>Copy Info</span>
       </div>
       <div class="context-menu-separator"></div>
+      <div class="context-menu-item" data-action="addGroupBookmark">
+        <span class="codicon codicon-add"></span>
+        <span>Add Bookmark</span>
+      </div>
+      <div class="context-menu-separator"></div>
       <div class="context-menu-item danger" data-action="deleteGroup">
         <span class="codicon codicon-trash"></span>
         <span>Delete Group</span>
@@ -1437,6 +1442,24 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
         break;
       }
     }
+
+    // 请求 Extension 提供当前光标位置
+    vscode.postMessage({
+      type: 'requestCurrentLocation'
+    });
+  }
+
+  /**
+   * 在分组末尾添加顶层书签
+   * @param {string} groupId - 分组 ID
+   */
+  function addGroupBookmark(groupId) {
+    addBookmarkContext = {
+      mode: 'group',
+      targetBookmarkId: '', // 无目标书签
+      groupId: groupId,
+      parentId: null
+    };
 
     // 请求 Extension 提供当前光标位置
     vscode.postMessage({
@@ -1683,6 +1706,11 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
         break;
       case 'editGroup':
         vscode.postMessage({ type: 'editGroup', groupId: contextMenuTarget.id });
+        break;
+      case 'addGroupBookmark':
+        if (contextMenuTarget.type === 'group') {
+          addGroupBookmark(contextMenuTarget.id);
+        }
         break;
       case 'copyGroupInfo':
         copyGroupInfo(contextMenuTarget.id);

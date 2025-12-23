@@ -531,7 +531,7 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
    */
   private async handleAddBookmark(payload: {
     groupId: string;
-    targetBookmarkId: string;
+    targetBookmarkId?: string;
     parentId: string | null;
     bookmark: {
       title: string;
@@ -541,47 +541,67 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
     };
   }): Promise<void> {
     try {
-      // 1. 查找目标书签
-      const targetResult = this.bookmarkStore.getBookmark(payload.targetBookmarkId);
-      if (!targetResult) {
-        vscode.window.showErrorMessage('Target bookmark not found');
-        return;
-      }
-
-      const { bookmark: targetBookmark, group } = targetResult;
-
-      // 2. 计算新书签的 order (在目标书签后面)
-      const newOrder = targetBookmark.order + 1;
-
-      // 3. 获取所有同级书签 (相同 parentId)
-      const siblings = group.bookmarks.filter(
-        b => b.parentId === targetBookmark.parentId
-      );
-
-      // 4. 调整后续书签的 order (+1)
-      siblings.forEach(sibling => {
-        if (sibling.order >= newOrder && sibling.id !== payload.targetBookmarkId) {
-          sibling.order += 1;
+      if (payload.targetBookmarkId) {
+        // 1. 查找目标书签
+        const targetResult = this.bookmarkStore.getBookmark(payload.targetBookmarkId);
+        if (!targetResult) {
+          vscode.window.showErrorMessage('Target bookmark not found');
+          return;
         }
-      });
 
-      // 5. 添加新书签
-      const newBookmarkId = this.bookmarkStore.addBookmark(
-        payload.groupId,
-        payload.bookmark.location,
-        payload.bookmark.title,
-        payload.bookmark.description,
-        {
-          parentId: payload.parentId || undefined,
-          order: newOrder,
-          category: payload.bookmark.category as any
+        const { bookmark: targetBookmark, group } = targetResult;
+
+        // 2. 计算新书签的 order (在目标书签后面)
+        const newOrder = targetBookmark.order + 1;
+
+        // 3. 获取所有同级书签 (相同 parentId)
+        const siblings = group.bookmarks.filter(
+          b => b.parentId === targetBookmark.parentId
+        );
+
+        // 4. 调整后续书签的 order (+1)
+        siblings.forEach(sibling => {
+          if (sibling.order >= newOrder && sibling.id !== payload.targetBookmarkId) {
+            sibling.order += 1;
+          }
+        });
+
+        // 5. 添加新书签
+        const newBookmarkId = this.bookmarkStore.addBookmark(
+          payload.groupId,
+          payload.bookmark.location,
+          payload.bookmark.title,
+          payload.bookmark.description,
+          {
+            parentId: payload.parentId || undefined,
+            order: newOrder,
+            category: payload.bookmark.category as any
+          }
+        );
+
+        if (newBookmarkId) {
+          vscode.window.showInformationMessage('Bookmark added successfully');
+        } else {
+          vscode.window.showErrorMessage('Failed to add bookmark');
         }
-      );
-
-      if (newBookmarkId) {
-        vscode.window.showInformationMessage('Bookmark added successfully');
       } else {
-        vscode.window.showErrorMessage('Failed to add bookmark');
+        // 直接添加到分组 (末尾)
+        const newBookmarkId = this.bookmarkStore.addBookmark(
+          payload.groupId,
+          payload.bookmark.location,
+          payload.bookmark.title,
+          payload.bookmark.description,
+          {
+            parentId: payload.parentId || undefined,
+            category: payload.bookmark.category as any
+          }
+        );
+
+        if (newBookmarkId) {
+          vscode.window.showInformationMessage('Bookmark added successfully');
+        } else {
+          vscode.window.showErrorMessage('Failed to add bookmark');
+        }
       }
 
     } catch (error) {

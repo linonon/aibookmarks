@@ -310,42 +310,7 @@
         }
       ]
     },
-    "keybindings": [
-      {
-        "command": "mcpBookmarks.addManual",
-        "key": "ctrl+alt+b",
-        "mac": "cmd+alt+b",
-        "when": "editorTextFocus"
-      },
-      {
-        "command": "mcpBookmarks.search",
-        "key": "ctrl+shift+b",
-        "mac": "cmd+shift+b"
-      },
-      {
-        "command": "mcpBookmarks.nextBookmark",
-        "key": "ctrl+alt+down",
-        "mac": "cmd+alt+down",
-        "when": "editorTextFocus"
-      },
-      {
-        "command": "mcpBookmarks.prevBookmark",
-        "key": "ctrl+alt+up",
-        "mac": "cmd+alt+up",
-        "when": "editorTextFocus"
-      },
-      {
-        "command": "mcpBookmarks.renameGroup",
-        "key": "f2",
-        "when": "view == mcpBookmarks && viewItem == group"
-      },
-      {
-        "command": "mcpBookmarks.delete",
-        "key": "delete",
-        "mac": "cmd+backspace",
-        "when": "view == mcpBookmarks && viewItem =~ /^bookmark/"
-      }
-    ],
+    
     "configuration": {
       "title": "MCP Bookmarks",
       "properties": {
