@@ -51,7 +51,7 @@ After installing the extension, configure MCP integration for your AI tool.
 
 1. Open Command Palette (`Cmd+Shift+P` or `Ctrl+Shift+P`)
 2. Run `MCP Bookmarks: Copy MCP Setup Command`
-3. Select your AI tool (Claude Code / Gemini / VSCode)
+3. Select your AI tool (Claude Code / Gemini / Codex / VSCode)
 4. The command will be copied to your clipboard
 
 ### For Claude Code Users
@@ -102,6 +102,16 @@ gemini mcp add -s user mcp-bookmarks node "~/.vscode/mcp-bookmarks-launcher.js"
 }
 ```
 
+### For Codex Users
+
+Paste this snippet into `~/.codex/config.toml`:
+
+```toml
+[mcp_servers."mcp-bookmarks"]
+command = "node"
+args = ["/Users/YOUR_USERNAME/.vscode/mcp-bookmarks-launcher.js"]
+```
+
 **Note**: Use the `Copy MCP Setup Command` to get the correct path automatically!
 
 ## Usage
@@ -120,7 +130,7 @@ Extensions: Install from VSIX...
 # In VSCode Command Palette:
 MCP Bookmarks: Copy MCP Setup Command
 
-# Select your AI tool (Claude Code / Gemini / VSCode)
+# Select your AI tool (Claude Code / Gemini / Codex / VSCode)
 # Copy the generated command
 
 # For Claude Code, run in terminal:

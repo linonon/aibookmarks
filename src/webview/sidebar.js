@@ -1468,7 +1468,15 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
       </div>
       <div class="context-menu-item" data-action="copyGroupInfo">
         <span class="codicon codicon-copy"></span>
-        <span>Copy Info</span>
+        <span>Copy ID and Title</span>
+      </div>
+      <div class="context-menu-item" data-action="copyGroupAsMarkdown">
+        <span class="codicon codicon-markdown"></span>
+        <span>Copy as Markdown</span>
+      </div>
+      <div class="context-menu-item" data-action="copyGroupInfoAsMarkdown">
+        <span class="codicon codicon-note"></span>
+        <span>Copy as Markdown (Info Only)</span>
       </div>
       <div class="context-menu-separator"></div>
       <div class="context-menu-item" data-action="addGroupBookmark">
@@ -1494,6 +1502,32 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
   function showBookmarkContextMenu(e, bookmarkId, groupId) {
     if (!contextMenu) return;
     contextMenuTarget = { type: 'bookmark', id: bookmarkId, groupId };
+
+    // 检测是否有子节点
+    let hasChildren = false;
+    const group = currentData.groups.find(g => g.id === groupId);
+    if (group && group.bookmarks) {
+      // 在扁平列表中查找是否有以当前书签为父节点的书签
+      hasChildren = group.bookmarks.some(b => b.parentId === bookmarkId);
+    }
+
+    // 根据是否有子节点生成不同的 Markdown 菜单项
+    const markdownMenuItems = hasChildren ? `
+      <div class="context-menu-item" data-action="copyBookmarkAsMarkdown">
+        <span class="codicon codicon-markdown"></span>
+        <span>Copy All as Markdown</span>
+      </div>
+      <div class="context-menu-item" data-action="copyBookmarkAsMarkdownOnly">
+        <span class="codicon codicon-note"></span>
+        <span>Copy as Markdown (This Only)</span>
+      </div>
+    ` : `
+      <div class="context-menu-item" data-action="copyBookmarkAsMarkdown">
+        <span class="codicon codicon-markdown"></span>
+        <span>Copy as Markdown</span>
+      </div>
+    `;
+
     contextMenu.innerHTML = `
       <div class="context-menu-item" data-action="editBookmark">
         <span class="codicon codicon-edit"></span>
@@ -1501,8 +1535,9 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
       </div>
       <div class="context-menu-item" data-action="copyBookmarkInfo">
         <span class="codicon codicon-copy"></span>
-        <span>Copy Info</span>
+        <span>Copy ID and Title</span>
       </div>
+      ${markdownMenuItems}
       <div class="context-menu-item" data-action="copyRelativePath">
         <span class="codicon codicon-file"></span>
         <span>Copy Relative Path</span>
@@ -1566,16 +1601,8 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
    * @returns {any}
    */
   function findBookmarkById(bookmarkId, bookmarks) {
-    for (const bookmark of bookmarks) {
-      if (bookmark.id === bookmarkId) {
-        return bookmark;
-      }
-      if (bookmark.children && bookmark.children.length > 0) {
-        const found = findBookmarkById(bookmarkId, bookmark.children);
-        if (found) return found;
-      }
-    }
-    return null;
+    // 直接在扁平列表中查找,不需要递归 (数据使用 parentId 而非 children)
+    return bookmarks.find(b => b.id === bookmarkId) || null;
   }
 
   // 复制书签信息到剪贴板
@@ -1648,6 +1675,133 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
       }
     }
   }
+
+  // ==================== Markdown 生成和复制函数 ====================
+
+  /**
+   * 将书签转换为 Markdown 格式
+   * @param {any} bookmark - 书签对象
+   * @param {any[]} allBookmarks - 所有书签列表(用于查找子节点)
+   * @param {number} level - 标题层级 (2 = ##, 3 = ###, ...)
+   * @param {boolean} includeChildren - 是否包含子节点
+   * @returns {string} Markdown 文本
+   */
+  function bookmarkToMarkdown(bookmark, allBookmarks, level = 2, includeChildren = true) {
+    const heading = '#'.repeat(level);
+    let md = `${heading} ${bookmark.title}\n\n`;
+    md += `**Location**: [${bookmark.location}](${bookmark.location})\n\n`;
+
+    if (bookmark.description) {
+      md += `${bookmark.description}\n`;
+    }
+
+    if (includeChildren) {
+      // 在所有书签中查找子节点
+      const children = allBookmarks
+        .filter(b => b.parentId === bookmark.id)
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+      
+      if (children.length > 0) {
+        for (const child of children) {
+          md += '\n' + bookmarkToMarkdown(child, allBookmarks, level + 1, true);
+        }
+      }
+    }
+
+    return md;
+  }
+
+  /**
+   * 将 Group 转换为 Markdown 格式 (完整版, 包含所有书签)
+   * @param {any} group - 分组对象
+   * @returns {string} Markdown 文本
+   */
+  function groupToMarkdown(group) {
+    let md = `# ${group.name}\n\n`;
+
+    if (group.description) {
+      md += `> ${group.description}\n\n`;
+    }
+
+    if (group.bookmarks && group.bookmarks.length > 0) {
+      // 只处理顶层书签 (没有 parentId 的)
+      const topLevel = group.bookmarks.filter((/** @type {any} */ b) => !b.parentId);
+      for (const bookmark of topLevel) {
+        md += bookmarkToMarkdown(bookmark, group.bookmarks, 2, true) + '\n';
+      }
+    }
+
+    return md.trim();
+  }
+
+  /**
+   * 将 Group 转换为 Markdown 格式 (仅信息)
+   * @param {any} group - 分组对象
+   * @returns {string} Markdown 文本
+   */
+  function groupInfoToMarkdown(group) {
+    let md = `# ${group.name}\n\n`;
+
+    if (group.description) {
+      md += `> ${group.description}\n\n`;
+    }
+
+    const createdDate = group.createdAt ? new Date(group.createdAt).toLocaleDateString() : 'Unknown';
+    md += `- **Created**: ${createdDate}\n`;
+    md += `- **Created By**: ${group.createdBy || 'Unknown'}\n`;
+    md += `- **Bookmarks**: ${group.bookmarks?.length || 0}\n`;
+
+    return md.trim();
+  }
+
+  /**
+   * 复制书签为 Markdown
+   * @param {string} bookmarkId
+   * @param {boolean} includeChildren - 是否包含子节点
+   */
+  function copyBookmarkAsMarkdown(bookmarkId, includeChildren = true) {
+    for (const group of currentData.groups) {
+      const bookmark = findBookmarkById(bookmarkId, group.bookmarks || []);
+      if (bookmark) {
+        const md = bookmarkToMarkdown(bookmark, group.bookmarks, 2, includeChildren);
+        // 检查实际的子书签 (通过 parentId 而非 children 字段)
+        const hasChildren = group.bookmarks.some(b => b.parentId === bookmark.id);
+        navigator.clipboard.writeText(md).then(() => {
+          vscode.postMessage({
+            type: 'showInfo',
+            message: includeChildren && hasChildren
+              ? 'Bookmark (with children) copied as Markdown'
+              : 'Bookmark copied as Markdown'
+          });
+        }).catch(err => {
+          console.error('Failed to copy:', err);
+        });
+        return;
+      }
+    }
+  }
+
+  /**
+   * 复制 Group 为 Markdown
+   * @param {string} groupId
+   * @param {boolean} includeBookmarks - 是否包含书签
+   */
+  function copyGroupAsMarkdown(groupId, includeBookmarks = true) {
+    const group = currentData.groups.find(g => g.id === groupId);
+    if (group) {
+      const md = includeBookmarks ? groupToMarkdown(group) : groupInfoToMarkdown(group);
+      navigator.clipboard.writeText(md).then(() => {
+        vscode.postMessage({
+          type: 'showInfo',
+          message: includeBookmarks ? 'Group copied as Markdown' : 'Group info copied as Markdown'
+        });
+      }).catch(err => {
+        console.error('Failed to copy:', err);
+      });
+    }
+  }
+
+  // ==================== 书签添加功能 ====================
 
   /**
    * 在当前书签后添加同级书签
@@ -1923,6 +2077,12 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
       case 'copyAbsolutePath':
         copyAbsolutePath(contextMenuTarget.id);
         break;
+      case 'copyBookmarkAsMarkdown':
+        copyBookmarkAsMarkdown(contextMenuTarget.id, true);
+        break;
+      case 'copyBookmarkAsMarkdownOnly':
+        copyBookmarkAsMarkdown(contextMenuTarget.id, false);
+        break;
       case 'addBookmarkAfter':
         if (contextMenuTarget.type === 'bookmark' && contextMenuTarget.groupId) {
           addBookmarkAfter(contextMenuTarget.id, contextMenuTarget.groupId);
@@ -1944,6 +2104,12 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
         break;
       case 'copyGroupInfo':
         copyGroupInfo(contextMenuTarget.id);
+        break;
+      case 'copyGroupAsMarkdown':
+        copyGroupAsMarkdown(contextMenuTarget.id, true);
+        break;
+      case 'copyGroupInfoAsMarkdown':
+        copyGroupAsMarkdown(contextMenuTarget.id, false);
         break;
       case 'deleteGroup':
         vscode.postMessage({ type: 'deleteGroup', groupId: contextMenuTarget.id });

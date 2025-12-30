@@ -1136,6 +1136,14 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
           command: `gemini mcp add -s user mcp-bookmarks node "${launcherPath}"`
         },
         {
+          label: 'Codex (config.toml)',
+          description: 'Copy a snippet for ~/.codex/config.toml',
+          command:
+            `[mcp_servers."mcp-bookmarks"]\n` +
+            `command = "node"\n` +
+            `args = ["${launcherPath}"]`
+        },
+        {
           label: 'VSCode (Manual Configuration)',
           description: 'Copy launcher path for VSCode MCP configuration',
           command: launcherPath
@@ -1168,6 +1176,13 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
           `    }\n` +
           `  }\n` +
           `}`,
+          'Got it'
+        );
+      } else if (selected.label === 'Codex (config.toml)') {
+        vscode.window.showInformationMessage(
+          `Codex config snippet copied!\n\n` +
+          `Paste into ~/.codex/config.toml (or your project config):\n\n` +
+          selected.command,
           'Got it'
         );
       } else {
