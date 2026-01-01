@@ -101,20 +101,21 @@ export class MCPHandlersStandalone {
   // create_group
   createGroup(args: WithProjectRoot<CreateGroupArgs>): ToolResult {
     try {
-      const { name, description, projectRoot } = args;
+      const { title, description, projectRoot, name } = args;
+      const groupTitle = title ?? name;
       const store = this.getStore(projectRoot);
 
-      if (!name || typeof name !== 'string') {
-        return { success: false, error: 'name is required and must be a string' };
+      if (!groupTitle || typeof groupTitle !== 'string') {
+        return { success: false, error: 'title is required and must be a string' };
       }
 
-      const groupId = store.createGroup(name, description, 'ai');
+      const groupId = store.createGroup(groupTitle, description, 'ai');
 
       return {
         success: true,
         data: {
           groupId,
-          message: `Successfully created group "${name}"`,
+          message: `Successfully created group "${groupTitle}"`,
           projectRoot: projectRoot || this.workspaceManager.getDefaultWorkspace()
         }
       };
@@ -262,7 +263,7 @@ export class MCPHandlersStandalone {
         data: {
           groups: groups.map((g: BookmarkGroup) => ({
             id: g.id,
-            name: g.name,
+            title: g.title,
             description: g.description,
             query: g.query,
             createdAt: g.createdAt,
@@ -318,7 +319,7 @@ export class MCPHandlersStandalone {
             description: r.bookmark.description,
             category: r.bookmark.category,
             groupId: r.group.id,
-            groupName: r.group.name,
+            groupTitle: r.group.title,
             hasChildren: store.hasChildren(r.bookmark.id)
           })),
           total: results.length
@@ -335,18 +336,27 @@ export class MCPHandlersStandalone {
   // update_group
   updateGroup(args: WithProjectRoot<UpdateGroupArgs>): ToolResult {
     try {
-      const { groupId, name, description, projectRoot } = args;
+      const { groupId, title, description, projectRoot, name } = args;
+      const groupTitle = title ?? name;
       const store = this.getStore(projectRoot);
 
       if (!groupId || typeof groupId !== 'string') {
         return { success: false, error: 'groupId is required and must be a string' };
       }
 
-      if (name === undefined && description === undefined) {
-        return { success: false, error: 'At least one of name or description must be provided' };
+      if (groupTitle === undefined && description === undefined) {
+        return { success: false, error: 'At least one of title or description must be provided' };
       }
 
-      const success = store.updateGroup(groupId, { name, description });
+      const updates: { title?: string; description?: string } = {};
+      if (groupTitle !== undefined) {
+        updates.title = groupTitle;
+      }
+      if (description !== undefined) {
+        updates.description = description;
+      }
+
+      const success = store.updateGroup(groupId, updates);
 
       if (!success) {
         return { success: false, error: `Group with id "${groupId}" not found` };
@@ -487,7 +497,7 @@ export class MCPHandlersStandalone {
       return {
         success: true,
         data: {
-          message: `Successfully removed group "${group.name}" with ${bookmarkCount} bookmark(s)`
+          message: `Successfully removed group "${group.title}" with ${bookmarkCount} bookmark(s)`
         }
       };
     } catch (error) {
@@ -520,7 +530,7 @@ export class MCPHandlersStandalone {
         data: {
           group: {
             id: group.id,
-            name: group.name,
+            title: group.title,
             description: group.description,
             query: group.query,
             createdAt: group.createdAt,
@@ -583,7 +593,7 @@ export class MCPHandlersStandalone {
           },
           group: {
             id: group.id,
-            name: group.name
+            title: group.title
           }
         }
       };
@@ -618,7 +628,7 @@ export class MCPHandlersStandalone {
           tree,
           group: result ? {
             id: result.group.id,
-            name: result.group.name
+            title: result.group.title
           } : null
         }
       };
@@ -700,7 +710,7 @@ export class MCPHandlersStandalone {
       return {
         success: successCount > 0,
         data: {
-          message: `Added ${successCount}/${bookmarks.length} bookmarks${parentId ? ' as children' : ''} to group "${group.name}"`,
+          message: `Added ${successCount}/${bookmarks.length} bookmarks${parentId ? ' as children' : ''} to group "${group.title}"`,
           parentId: parentId || null,
           results
         }

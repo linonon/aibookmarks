@@ -333,7 +333,7 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
               type: 'group',
               group: {
                 id: group.id,
-                name: group.name,
+                title: group.title,
                 description: group.description
               }
             });
@@ -671,7 +671,7 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
         bookmark.title.toLowerCase().includes(lowerQuery) ||
         bookmark.description.toLowerCase().includes(lowerQuery) ||
         bookmark.location.toLowerCase().includes(lowerQuery) ||
-        group.name.toLowerCase().includes(lowerQuery)
+        group.title.toLowerCase().includes(lowerQuery)
       );
     });
 
@@ -758,18 +758,18 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
    */
   private async handleUpdateGroupFull(
     groupId: string,
-    updates: { name: string; description?: string }
+    updates: { title: string; description?: string }
   ): Promise<void> {
     try {
-      // 1. 验证 name 必填
-      if (!updates.name || updates.name.trim().length === 0) {
-        this.sendGroupValidationError('group-name', 'Name is required');
+      // 1. 验证 title 必填
+      if (!updates.title || updates.title.trim().length === 0) {
+        this.sendGroupValidationError('group-title', 'Title is required');
         return;
       }
 
-      // 2. 验证 name 长度
-      if (updates.name.length > 200) {
-        this.sendGroupValidationError('group-name', 'Name is too long (max 200 characters)');
+      // 2. 验证 title 长度
+      if (updates.title.length > 200) {
+        this.sendGroupValidationError('group-title', 'Title is too long (max 200 characters)');
         return;
       }
 
@@ -781,7 +781,7 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
 
       // 4. 执行更新
       this.bookmarkStore.updateGroup(groupId, {
-        name: updates.name.trim(),
+        title: updates.title.trim(),
         description: updates.description?.trim() || ''
       });
 
@@ -806,7 +806,7 @@ export class BookmarkSidebarProvider implements vscode.WebviewViewProvider {
     }
     this._view.webview.postMessage({
       type: 'groupValidationError',
-      field: field,
+      field: `error-${field}`,
       error: error
     });
   }

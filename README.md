@@ -166,7 +166,7 @@ Now your AI assistant can create bookmarks in your codebase!
 - `MCP Bookmarks: Refresh` - Refresh the bookmark tree
 - `MCP Bookmarks: Add Bookmark Here` - Manually add a bookmark at cursor
 - `MCP Bookmarks: Create Group` - Create a new bookmark group
-- `MCP Bookmarks: Edit Group` - Edit group name and description
+- `MCP Bookmarks: Edit Group` - Edit group title and description
 - `MCP Bookmarks: Rename Group` - Quick rename a group (F2)
 - `MCP Bookmarks: Delete Group` - Delete a group and its bookmarks
 - `MCP Bookmarks: Edit Bookmark` - Edit bookmark properties

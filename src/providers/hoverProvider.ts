@@ -67,7 +67,7 @@ export class BookmarkHoverProvider implements vscode.HoverProvider {
       md.appendMarkdown(`**${bookmark.order}. ${bookmark.title}**\n\n`);
 
       // Group as subtle info
-      md.appendMarkdown(`*Group: ${group.name}*\n\n`);
+      md.appendMarkdown(`*Group: ${group.title}*\n\n`);
 
       // Description with clickable links
       if (bookmark.description) {

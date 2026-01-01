@@ -31,19 +31,20 @@ export class MCPHandlers {
   // create_group - 创建一个新的书签分组
   createGroup(args: CreateGroupArgs): ToolResult {
     try {
-      const { name, description } = args;
+      const { title, description, name } = args;
+      const groupTitle = title ?? name;
 
-      if (!name || typeof name !== 'string') {
-        return { success: false, error: 'name is required and must be a string' };
+      if (!groupTitle || typeof groupTitle !== 'string') {
+        return { success: false, error: 'title is required and must be a string' };
       }
 
-      const groupId = this.store.createGroup(name, description, 'ai');
+      const groupId = this.store.createGroup(groupTitle, description, 'ai');
 
       return {
         success: true,
         data: {
           groupId,
-          message: `Successfully created group "${name}"`
+          message: `Successfully created group "${groupTitle}"`
         }
       };
     } catch (error) {
@@ -195,7 +196,7 @@ export class MCPHandlers {
         data: {
           groups: groups.map(g => ({
             id: g.id,
-            name: g.name,
+            title: g.title,
             description: g.description,
             query: g.query,
             createdAt: g.createdAt,
@@ -252,7 +253,7 @@ export class MCPHandlers {
             collapsed: r.bookmark.collapsed,
             hasChildren: this.store.hasChildren(r.bookmark.id),
             groupId: r.group.id,
-            groupName: r.group.name
+            groupTitle: r.group.title
           })),
           total: results.length
         }
@@ -268,17 +269,26 @@ export class MCPHandlers {
   // update_group - 更新分组信息
   updateGroup(args: UpdateGroupArgs): ToolResult {
     try {
-      const { groupId, name, description } = args;
+      const { groupId, title, description, name } = args;
+      const groupTitle = title ?? name;
 
       if (!groupId || typeof groupId !== 'string') {
         return { success: false, error: 'groupId is required and must be a string' };
       }
 
-      if (name === undefined && description === undefined) {
-        return { success: false, error: 'At least one of name or description must be provided' };
+      if (groupTitle === undefined && description === undefined) {
+        return { success: false, error: 'At least one of title or description must be provided' };
       }
 
-      const success = this.store.updateGroup(groupId, { name, description });
+      const updates: { title?: string; description?: string } = {};
+      if (groupTitle !== undefined) {
+        updates.title = groupTitle;
+      }
+      if (description !== undefined) {
+        updates.description = description;
+      }
+
+      const success = this.store.updateGroup(groupId, updates);
 
       if (!success) {
         return { success: false, error: `Group with id "${groupId}" not found` };
@@ -419,7 +429,7 @@ export class MCPHandlers {
       return {
         success: true,
         data: {
-          message: `Successfully removed group "${group.name}" with ${bookmarkCount} bookmark(s)`
+          message: `Successfully removed group "${group.title}" with ${bookmarkCount} bookmark(s)`
         }
       };
     } catch (error) {
@@ -465,7 +475,7 @@ export class MCPHandlers {
         data: {
           group: {
             id: group.id,
-            name: group.name,
+            title: group.title,
             description: group.description,
             query: group.query,
             createdAt: group.createdAt,
@@ -533,7 +543,7 @@ export class MCPHandlers {
           },
           group: {
             id: group.id,
-            name: group.name
+            title: group.title
           }
         }
       };
@@ -590,7 +600,7 @@ export class MCPHandlers {
           tree: formatTree(tree),
           group: {
             id: bookmarkResult.group.id,
-            name: bookmarkResult.group.name
+            title: bookmarkResult.group.title
           },
           totalNodes: countNodes(tree)
         }
@@ -673,7 +683,7 @@ export class MCPHandlers {
 
       const message = parentId
         ? `Added ${successCount}/${bookmarks.length} child bookmarks under parent "${parentId}"`
-        : `Added ${successCount}/${bookmarks.length} bookmarks to group "${group.name}"`;
+        : `Added ${successCount}/${bookmarks.length} bookmarks to group "${group.title}"`;
 
       return {
         success: successCount > 0,

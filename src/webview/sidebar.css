@@ -30,7 +30,7 @@
   /* Font Sizes - 可通过配置动态覆盖 */
   --font-size-title: 13px;          /* 书签标题字体大小 */
   --font-size-description: 11px;    /* 书签描述字体大小 */
-  --font-size-group-name: 14px;     /* 分组名称字体大小 */
+  --font-size-group-name: 14px;     /* 分组标题字体大小 */
   --font-size-location: 10px;       /* 文件位置字体大小 */
 }
 
@@ -1539,7 +1539,7 @@ body {
   font-size: var(--font-size-title) !important;  /* 改为与 bookmark title 相同的 13px */
   font-weight: 400 !important;  /* 改为与 bookmark title 相同的 normal weight */
   color: #ffffff !important;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.5px;
   opacity: 0.8;
 }

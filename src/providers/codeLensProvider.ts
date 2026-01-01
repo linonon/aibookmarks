@@ -36,7 +36,7 @@ export class BookmarkCodeLensProvider implements vscode.CodeLensProvider {
         // Create CodeLens with command
         const codeLens = new vscode.CodeLens(range, {
           title: `${icon} ${bookmark.title}`,
-          tooltip: `[${group.name}] ${bookmark.description}`,
+          tooltip: `[${group.title}] ${bookmark.description}`,
           command: 'mcpBookmarks.revealBookmark',
           arguments: [bookmark, group]
         });

@@ -51,6 +51,33 @@ export class BookmarkStoreManager {
     });
   }
 
+  private migrateStore(store: BookmarkStore): { store: BookmarkStore; migrated: boolean } {
+    let migrated = false;
+
+    if (!Array.isArray(store.groups)) {
+      store.groups = [];
+      migrated = true;
+    }
+
+    for (const group of store.groups) {
+      const legacyGroup = group as BookmarkGroup & { name?: string; title?: string };
+      if (!legacyGroup.title || typeof legacyGroup.title !== 'string') {
+        if (typeof legacyGroup.name === 'string' && legacyGroup.name.trim().length > 0) {
+          legacyGroup.title = legacyGroup.name;
+        } else {
+          legacyGroup.title = 'Untitled group';
+        }
+        migrated = true;
+      }
+      if (legacyGroup.name !== undefined) {
+        delete (legacyGroup as { name?: string }).name;
+        migrated = true;
+      }
+    }
+
+    return { store, migrated };
+  }
+
   private load(): BookmarkStore {
     try {
       // 数据迁移: 如果旧的 ai-bookmarks.json 存在且新文件不存在, 自动重命名
@@ -61,7 +88,12 @@ export class BookmarkStoreManager {
 
       if (fs.existsSync(this.storePath)) {
         const content = fs.readFileSync(this.storePath, 'utf-8');
-        return JSON.parse(content) as BookmarkStore;
+        const parsed = JSON.parse(content) as BookmarkStore;
+        const { store, migrated } = this.migrateStore(parsed);
+        if (migrated) {
+          this.writeStore(store);
+        }
+        return store;
       }
     } catch (error) {
       console.error('Failed to load bookmark store:', error);
@@ -75,13 +107,17 @@ export class BookmarkStoreManager {
     this._onDidChange.fire();
   }
 
+  private writeStore(store: BookmarkStore): void {
+    const dir = path.dirname(this.storePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(this.storePath, JSON.stringify(store, null, 2), 'utf-8');
+  }
+
   private save(): void {
     try {
-      const dir = path.dirname(this.storePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(this.storePath, JSON.stringify(this.store, null, 2), 'utf-8');
+      this.writeStore(this.store);
     } catch (error) {
       console.error('Failed to save bookmark store:', error);
       vscode.window.showErrorMessage(`Failed to save bookmarks: ${error}`);
@@ -91,7 +127,7 @@ export class BookmarkStoreManager {
   // Group operations
 
   createGroup(
-    name: string,
+    title: string,
     description?: string,
     createdBy: 'ai' | 'user' = 'ai'
   ): string {
@@ -100,7 +136,7 @@ export class BookmarkStoreManager {
 
     const group: BookmarkGroup = {
       id,
-      name,
+      title,
       description,
       createdAt: now,
       updatedAt: now,
@@ -126,14 +162,14 @@ export class BookmarkStoreManager {
     return [...this.store.groups];
   }
 
-  updateGroup(groupId: string, updates: { name?: string; description?: string }): boolean {
+  updateGroup(groupId: string, updates: { title?: string; description?: string }): boolean {
     const group = this.store.groups.find(g => g.id === groupId);
     if (!group) {
       return false;
     }
 
-    if (updates.name !== undefined) {
-      group.name = updates.name;
+    if (updates.title !== undefined) {
+      group.title = updates.title;
     }
     if (updates.description !== undefined) {
       group.description = updates.description;
@@ -539,7 +575,7 @@ export class BookmarkStoreManager {
     lines.push('');
 
     for (const group of this.store.groups) {
-      lines.push(`## ${group.name}`);
+      lines.push(`## ${group.title}`);
       if (group.description) {
         lines.push('');
         lines.push(group.description);

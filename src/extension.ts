@@ -6,7 +6,7 @@ import { DecorationProvider } from './providers/decorationProvider';
 import { BookmarkHoverProvider } from './providers/hoverProvider';
 import { BookmarkCodeLensProvider } from './providers/codeLensProvider';
 import { BookmarkDetailProvider } from './providers/webviewProvider';
-import { Bookmark, BookmarkGroup } from './store/types';
+import { Bookmark, BookmarkGroup, createDefaultStore } from './store/types';
 import { parseLocation, toAbsolutePath } from './utils';
 
 let bookmarkStore: BookmarkStoreManager | undefined;
@@ -273,21 +273,21 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
       }
 
       // Extract group from tree item
-      const groupItem = item as { type: string; group?: { id: string; name: string; bookmarks: unknown[] } };
+      const groupItem = item as { type: string; group?: { id: string; title: string; bookmarks: unknown[] } };
       if (groupItem?.type !== 'group' || !groupItem.group) {
         return;
       }
 
       const group = groupItem.group;
       const confirm = await vscode.window.showWarningMessage(
-        `Delete group "${group.name}" and all ${group.bookmarks.length} bookmark(s)?`,
+        `Delete group "${group.title}" and all ${group.bookmarks.length} bookmark(s)?`,
         { modal: true },
         'Delete'
       );
 
       if (confirm === 'Delete') {
         bookmarkStore.removeGroup(group.id);
-        vscode.window.showInformationMessage(`Group "${group.name}" deleted`);
+        vscode.window.showInformationMessage(`Group "${group.title}" deleted`);
       }
     })
   );
@@ -321,7 +321,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
       const groupItems: vscode.QuickPickItem[] = [
         { label: '$(add) Create New Group', description: 'Create a new bookmark group' },
         ...groups.map(g => ({
-          label: g.name,
+          label: g.title,
           description: `${g.bookmarks.length} bookmark(s)`,
           detail: g.id
         }))
@@ -338,16 +338,16 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
       let groupId: string;
 
       if (selectedGroup.label === '$(add) Create New Group') {
-        const groupName = await vscode.window.showInputBox({
-          prompt: 'Enter group name',
+        const groupTitle = await vscode.window.showInputBox({
+          prompt: 'Enter group title',
           placeHolder: 'e.g., Bug fixes, Feature implementation'
         });
 
-        if (!groupName) {
+        if (!groupTitle) {
           return;
         }
 
-        groupId = bookmarkStore.createGroup(groupName, undefined, 'user');
+        groupId = bookmarkStore.createGroup(groupTitle, undefined, 'user');
       } else {
         groupId = selectedGroup.detail!;
       }
@@ -408,12 +408,12 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
         return;
       }
 
-      const name = await vscode.window.showInputBox({
-        prompt: 'Enter group name',
+      const title = await vscode.window.showInputBox({
+        prompt: 'Enter group title',
         placeHolder: 'e.g., Authentication flow'
       });
 
-      if (!name) {
+      if (!title) {
         return;
       }
 
@@ -423,8 +423,8 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
         'Enter group description (optional, close tab to skip)'
       );
 
-      bookmarkStore.createGroup(name, description || undefined, 'user');
-      vscode.window.showInformationMessage(`Group "${name}" created`);
+      bookmarkStore.createGroup(title, description || undefined, 'user');
+      vscode.window.showInformationMessage(`Group "${title}" created`);
     })
   );
 
@@ -467,7 +467,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
         ({ bookmark, group }) => ({
           label: `${bookmark.order}. ${bookmark.title}`,
           description: bookmark.location,
-          detail: `[${group.name}] ${bookmark.description.substring(0, 100)}${bookmark.description.length > 100 ? '...' : ''}`,
+          detail: `[${group.title}] ${bookmark.description.substring(0, 100)}${bookmark.description.length > 100 ? '...' : ''}`,
           bookmark
         })
       );
@@ -737,14 +737,14 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
     })
   );
 
-  // Edit group command (edit name and description)
+  // Edit group command (edit title and description)
   context.subscriptions.push(
     vscode.commands.registerCommand('mcpBookmarks.editGroup', async (item: unknown) => {
       if (!bookmarkStore) {
         return;
       }
 
-      const groupItem = item as { type: string; group?: { id: string; name: string; description?: string } };
+      const groupItem = item as { type: string; group?: { id: string; title: string; description?: string } };
       if (groupItem?.type !== 'group' || !groupItem.group) {
         vscode.window.showErrorMessage('Please select a group to edit');
         return;
@@ -754,9 +754,9 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
       // Choose what to edit
       const editOptions = [
-        { label: 'Name', description: group.name },
+        { label: 'Title', description: group.title },
         { label: 'Description', description: group.description || 'None' },
-        { label: 'Both', description: 'Edit name and description' }
+        { label: 'Both', description: 'Edit title and description' }
       ];
 
       const selected = await vscode.window.showQuickPick(editOptions, {
@@ -767,15 +767,15 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
         return;
       }
 
-      let newName: string | undefined;
+      let newTitle: string | undefined;
       let newDescription: string | undefined;
 
-      if (selected.label === 'Name' || selected.label === 'Both') {
-        newName = await vscode.window.showInputBox({
-          prompt: 'Enter new group name',
-          value: group.name
+      if (selected.label === 'Title' || selected.label === 'Both') {
+        newTitle = await vscode.window.showInputBox({
+          prompt: 'Enter new group title',
+          value: group.title
         });
-        if (selected.label === 'Name' && !newName) {
+        if (selected.label === 'Title' && !newTitle) {
           return;
         }
       }
@@ -787,9 +787,9 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
         );
       }
 
-      const updates: { name?: string; description?: string } = {};
-      if (newName !== undefined) {
-        updates.name = newName;
+      const updates: { title?: string; description?: string } = {};
+      if (newTitle !== undefined) {
+        updates.title = newTitle;
       }
       if (newDescription !== undefined) {
         updates.description = newDescription || undefined;
@@ -797,7 +797,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
 
       if (Object.keys(updates).length > 0) {
         bookmarkStore.updateGroup(group.id, updates);
-        vscode.window.showInformationMessage(`Group "${newName || group.name}" updated`);
+        vscode.window.showInformationMessage(`Group "${newTitle || group.title}" updated`);
       }
     })
   );
@@ -809,21 +809,21 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
         return;
       }
 
-      const groupItem = item as { type: string; group?: { id: string; name: string } };
+      const groupItem = item as { type: string; group?: { id: string; title: string } };
       if (groupItem?.type !== 'group' || !groupItem.group) {
         vscode.window.showErrorMessage('Please select a group to rename');
         return;
       }
 
       const group = groupItem.group;
-      const newName = await vscode.window.showInputBox({
-        prompt: 'Enter new group name',
-        value: group.name
+      const newTitle = await vscode.window.showInputBox({
+        prompt: 'Enter new group title',
+        value: group.title
       });
 
-      if (newName && newName !== group.name) {
-        bookmarkStore.updateGroup(group.id, { name: newName });
-        vscode.window.showInformationMessage(`Group renamed to "${newName}"`);
+      if (newTitle && newTitle !== group.title) {
+        bookmarkStore.updateGroup(group.id, { title: newTitle });
+        vscode.window.showInformationMessage(`Group renamed to "${newTitle}"`);
       }
     })
   );
@@ -860,7 +860,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
       const groupItems = groups
         .filter(g => g.id !== currentGroup.id)
         .map(g => ({
-          label: g.name,
+          label: g.title,
           description: `${g.bookmarks.length} bookmark(s)`,
           detail: g.id
         }));
@@ -912,7 +912,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
       }
 
       const group = groupItem.group;
-      const infoText = `${group.name}(${group.id})`;
+      const infoText = `${group.title}(${group.id})`;
       await vscode.env.clipboard.writeText(infoText);
       vscode.window.showInformationMessage('Group info copied');
     })
@@ -969,7 +969,7 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
       }
 
       // Extract parent bookmark from tree item
-      const bookmarkItem = item as { type: string; bookmark?: Bookmark; group?: { id: string; name: string } };
+      const bookmarkItem = item as { type: string; bookmark?: Bookmark; group?: { id: string; title: string } };
       if (!bookmarkItem?.bookmark || !bookmarkItem?.group) {
         vscode.window.showErrorMessage('Please select a bookmark to add a child to');
         return;
@@ -1187,6 +1187,27 @@ function registerCommands(context: vscode.ExtensionContext, workspaceRoot: strin
           `Run the command in your terminal to configure MCP.`,
           'Got it'
         );
+      }
+    })
+  );
+
+  // Open bookmark store file
+  context.subscriptions.push(
+    vscode.commands.registerCommand('mcpBookmarks.openStoreFile', async () => {
+      try {
+        const fs = await import('fs');
+        const storePath = path.join(workspaceRoot, '.vscode', 'mcp-bookmarks.json');
+
+        if (!fs.existsSync(storePath)) {
+          const defaultStore = createDefaultStore(path.basename(workspaceRoot));
+          fs.mkdirSync(path.dirname(storePath), { recursive: true });
+          fs.writeFileSync(storePath, JSON.stringify(defaultStore, null, 2), 'utf-8');
+        }
+
+        const document = await vscode.workspace.openTextDocument(vscode.Uri.file(storePath));
+        await vscode.window.showTextDocument(document, { preview: false });
+      } catch (error) {
+        vscode.window.showErrorMessage(`Failed to open mcp-bookmarks.json: ${error}`);
       }
     })
   );

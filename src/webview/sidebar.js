@@ -281,7 +281,7 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
    * @param {Object} config - 字体配置对象
    * @param {number} config.title - 标题字体大小
    * @param {number} config.description - 描述字体大小
-   * @param {number} config.groupName - 分组名称字体大小
+   * @param {number} config.groupName - 分组标题字体大小
    * @param {number} config.location - 位置字体大小
    */
   function updateFontSize(config) {
@@ -517,7 +517,7 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
             <span class="codicon ${group.createdBy === 'ai' ? 'codicon-sparkle' : 'codicon-bookmark'}"></span>
           </span>
           <div class="group-info">
-            <span class="group-name">${escapeHtml(group.name)}</span>
+            <span class="group-name">${escapeHtml(group.title)}</span>
             ${group.description ? `
               <div class="group-description-wrapper">
                 <button class="group-description-toggle-btn" data-group-id="${escapeHtml(group.id)}" title="Expand/Collapse">
@@ -1238,10 +1238,10 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
     // 绑定保存和取消事件
     const saveBtn = /** @type {HTMLButtonElement} */ (groupHeader.querySelector('.form-btn-save'));
     const cancelBtn = /** @type {HTMLButtonElement} */ (groupHeader.querySelector('.form-btn-cancel'));
-    const nameInput = /** @type {HTMLInputElement} */ (groupHeader.querySelector('#edit-group-name'));
+    const titleInput = /** @type {HTMLInputElement} */ (groupHeader.querySelector('#edit-group-title'));
     const descriptionTextarea = /** @type {HTMLTextAreaElement} */ (groupHeader.querySelector('#edit-group-description'));
 
-    if (!saveBtn || !cancelBtn || !nameInput || !descriptionTextarea) {
+    if (!saveBtn || !cancelBtn || !titleInput || !descriptionTextarea) {
       console.warn('Cannot find form elements');
       groupHeader.innerHTML = originalHTML;
       return;
@@ -1249,11 +1249,11 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
 
     // 保存函数
     function save() {
-      const name = nameInput.value.trim();
+      const title = titleInput.value.trim();
       const description = descriptionTextarea.value.trim();
 
       // 前端验证
-      const validation = validateGroupInputs(name, description);
+      const validation = validateGroupInputs(title, description);
       if (!validation.isValid) {
         // 显示错误
         for (const [field, error] of Object.entries(validation.errors)) {
@@ -1273,7 +1273,7 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
       vscode.postMessage({
         type: 'updateGroupFull',
         groupId: groupId,
-        updates: { name, description }
+        updates: { title, description }
       });
 
       // 注意: 成功后会收到 refresh 消息，不需要手动恢复
@@ -1304,7 +1304,7 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
       }
     };
 
-    nameInput.addEventListener('keydown', handleKeyDown);
+    titleInput.addEventListener('keydown', handleKeyDown);
     descriptionTextarea.addEventListener('keydown', handleKeyDown);
 
     // 自适应高度
@@ -1316,9 +1316,9 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
     descriptionTextarea.addEventListener('input', adjustHeight);
     adjustHeight(); // 初始化高度
 
-    // 聚焦到 name
-    nameInput.focus();
-    nameInput.setSelectionRange(nameInput.value.length, nameInput.value.length);
+    // 聚焦到 title
+    titleInput.focus();
+    titleInput.setSelectionRange(titleInput.value.length, titleInput.value.length);
   }
 
   /**
@@ -1333,9 +1333,9 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
     return `
       <div class="group-edit-form">
         <div class="form-field">
-          <label class="form-label">Name *</label>
-          <input type="text" class="form-input" id="edit-group-name" value="${escapeHtml(group.name)}" maxlength="200">
-          <div class="form-error" id="error-group-name"></div>
+          <label class="form-label">Title *</label>
+          <input type="text" class="form-input" id="edit-group-title" value="${escapeHtml(group.title)}" maxlength="200">
+          <div class="form-error" id="error-group-title"></div>
         </div>
 
         <div class="form-field">
@@ -1371,19 +1371,19 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
 
   /**
    * 验证分组输入
-   * @param {string} name - 分组名称
+   * @param {string} title - 分组标题
    * @param {string} description - 分组说明
    * @returns {{isValid: boolean, errors: Record<string, string>}} 验证结果
    */
-  function validateGroupInputs(name, description) {
+  function validateGroupInputs(title, description) {
     /** @type {Record<string, string>} */
     const errors = {};
 
-    // Name 验证
-    if (!name) {
-      errors['error-group-name'] = 'Name is required';
-    } else if (name.length > 200) {
-      errors['error-group-name'] = 'Name is too long (max 200 characters)';
+    // Title 验证
+    if (!title) {
+      errors['error-group-title'] = 'Title is required';
+    } else if (title.length > 200) {
+      errors['error-group-title'] = 'Title is too long (max 200 characters)';
     }
 
     // Description 验证
@@ -1401,7 +1401,7 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
    * 清除分组编辑表单的所有错误
    */
   function clearGroupErrors() {
-    ['error-group-name', 'error-group-description'].forEach(clearError);
+    ['error-group-title', 'error-group-description'].forEach(clearError);
   }
 
   // 显示分组右键菜单
@@ -1581,7 +1581,7 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
   function copyGroupInfo(groupId) {
     const group = currentData.groups.find(g => g.id === groupId);
     if (group) {
-      const info = `${group.name}(${group.id})`;
+      const info = `${group.title}(${group.id})`;
       navigator.clipboard.writeText(info).then(() => {
         vscode.postMessage({ type: 'showInfo', message: 'Group ID copied to clipboard' });
       }).catch(err => {
@@ -1668,7 +1668,7 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
    * @returns {string} Markdown 文本
    */
   function groupToMarkdown(group) {
-    let md = `# ${group.name}\n\n`;
+    let md = `# ${group.title}\n\n`;
 
     if (group.description) {
       md += `> ${group.description}\n\n`;
@@ -1691,7 +1691,7 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
    * @returns {string} Markdown 文本
    */
   function groupInfoToMarkdown(group) {
-    let md = `# ${group.name}\n\n`;
+    let md = `# ${group.title}\n\n`;
 
     if (group.description) {
       md += `> ${group.description}\n\n`;
@@ -2111,7 +2111,7 @@ const DOMPurify = /** @type {any} */ (window).DOMPurify;
            data-bookmark-id="${escapeHtml(bookmark.id)}"
            data-category="${escapeHtml(category)}">
         <div class="search-result-title">${escapeHtml(bookmark.title)}</div>
-        <div class="search-result-group">${escapeHtml(group.name)}</div>
+        <div class="search-result-group">${escapeHtml(group.title)}</div>
         <div class="search-result-location">${escapeHtml(formatLocation(bookmark.location))}</div>
       </div>
     `;

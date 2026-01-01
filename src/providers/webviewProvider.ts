@@ -127,7 +127,7 @@ export class BookmarkDetailProvider {
         },
         group: {
           id: group.id,
-          name: group.name,
+          title: group.title,
           createdBy: group.createdBy
         },
         parent: parentInfo,

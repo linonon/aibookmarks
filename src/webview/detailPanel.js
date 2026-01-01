@@ -48,7 +48,7 @@
     renderHierarchy(parent, children, hasChildren);
 
     // Group
-    document.getElementById('group-name').textContent = group.name;
+    document.getElementById('group-name').textContent = group.title;
     const createdByBadge = document.getElementById('group-created-by');
     createdByBadge.textContent = group.createdBy;
     createdByBadge.className = `badge ${group.createdBy}`;

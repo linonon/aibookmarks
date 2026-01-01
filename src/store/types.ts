@@ -32,7 +32,7 @@ export interface BookmarkWithChildren extends Bookmark {
 // Bookmark group
 export interface BookmarkGroup {
   id: string;                    // UUID
-  name: string;                  // 分组名称，如 "Crash 游戏核心流程"
+  title: string;                 // 分组标题，如 "Crash 游戏核心流程"
   description?: string;          // 分组说明
   query?: string;                // 创建时的查询/上下文
   createdAt: string;             // ISO timestamp
@@ -58,8 +58,9 @@ export interface ParsedLocation {
 
 // MCP tool arguments
 export interface CreateGroupArgs {
-  name: string;
+  title: string;
   description?: string;
+  name?: string; // Deprecated: legacy clients may still send name.
 }
 
 export interface AddBookmarkArgs {
@@ -100,8 +101,9 @@ export interface GetBookmarkTreeArgs {
 
 export interface UpdateGroupArgs {
   groupId: string;
-  name?: string;
+  title?: string;
   description?: string;
+  name?: string; // Deprecated: legacy clients may still send name.
 }
 
 export interface UpdateBookmarkArgs {

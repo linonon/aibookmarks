@@ -188,6 +188,12 @@
         "title": "Copy MCP Setup Command",
         "icon": "$(terminal)",
         "category": "MCP Bookmarks"
+      },
+      {
+        "command": "mcpBookmarks.openStoreFile",
+        "title": "Open mcp-bookmarks.json",
+        "icon": "$(go-to-file)",
+        "category": "MCP Bookmarks"
       }
     ],
     "menus": {
@@ -219,11 +225,14 @@
         },
         {
           "command": "mcpBookmarks.toggleViewMode",
-          "when": "view == mcpBookmarks",
-          "group": "navigation@6"
+          "when": "view == mcpBookmarks"
         },
         {
           "command": "mcpBookmarks.exportMarkdown",
+          "when": "view == mcpBookmarks"
+        },
+        {
+          "command": "mcpBookmarks.openStoreFile",
           "when": "view == mcpBookmarks"
         }
       ],
@@ -386,7 +395,7 @@
           "default": 14,
           "minimum": 10,
           "maximum": 32,
-          "description": "分组名称的字体大小 (px)"
+          "description": "分组标题的字体大小 (px)"
         },
         "mcpBookmarks.fontSize.location": {
           "type": "number",

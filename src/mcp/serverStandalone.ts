@@ -51,21 +51,21 @@ Then all subsequent bookmark operations will save to /Users/name/projects/myapp/
   },
   {
     name: 'create_group',
-    description: 'Create a new bookmark group. Groups are used to organize bookmarks by topic or description.',
+    description: 'Create a new bookmark group. Groups are used to organize bookmarks by topic or description. Use `title` for the group name; `name` is deprecated and should not be used.',
     inputSchema: {
       type: 'object',
       properties: {
         ...PROJECT_ROOT_PROPERTY,
-        name: {
+        title: {
           type: 'string',
-          description: 'Group name, e.g., "Crash game core flow"'
+          description: 'Group title (use `title`, not `name`), e.g., "Crash game core flow"'
         },
         description: {
           type: 'string',
           description: 'Group description'
         }
       },
-      required: ['name']
+      required: ['title']
     }
   },
   {
@@ -351,7 +351,7 @@ When describing related code, use Markdown links for easy navigation:
   },
   {
     name: 'update_group',
-    description: 'Update a bookmark group\'s name or description.',
+    description: 'Update a bookmark group\'s title or description. Use `title` for the group name; `name` is deprecated and should not be used.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -360,9 +360,9 @@ When describing related code, use Markdown links for easy navigation:
           type: 'string',
           description: 'The ID of the group to update'
         },
-        name: {
+        title: {
           type: 'string',
-          description: 'New group name'
+          description: 'New group title (use `title`, not `name`)'
         },
         description: {
           type: 'string',
