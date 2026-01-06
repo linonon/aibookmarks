@@ -179,24 +179,16 @@ Now your AI assistant can create bookmarks in your codebase!
 - `MCP Bookmarks: Expand All` - Expand all tree nodes
 - `MCP Bookmarks: Collapse All` - Collapse all tree nodes
 
-**Keyboard Shortcuts:**
-- `Ctrl+Alt+B` / `Cmd+Alt+B` - Add bookmark at cursor
-- `Ctrl+Shift+B` / `Cmd+Shift+B` - Search bookmarks
-- `Ctrl+Alt+Down` / `Cmd+Alt+Down` - Go to next bookmark
-- `Ctrl+Alt+Up` / `Cmd+Alt+Up` - Go to previous bookmark
-- `F2` - Rename selected group (in tree view)
-- `Delete` / `Cmd+Backspace` - Delete selected bookmark (in tree view)
-
 ## Configuration
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `aiBookmarks.mcpPort` | 3333 | MCP Server port |
-| `aiBookmarks.showInlineDecorations` | true | Show bookmark icons in gutter |
-| `aiBookmarks.viewMode` | "group" | View mode: "group" or "file" |
-| `aiBookmarks.quickAddMode` | "simple" | Quick add mode: "full" (all options) or "simple" (title only) |
-| `aiBookmarks.defaultCategory` | "explanation" | Default category for new bookmarks |
-| `aiBookmarks.confirmBeforeDelete` | true | Show confirmation before deleting |
+| `mcpBookmarks.mcpPort` | 3333 | MCP Server port |
+| `mcpBookmarks.showInlineDecorations` | true | Show bookmark icons in gutter |
+| `mcpBookmarks.viewMode` | "group" | View mode: "group" or "file" |
+| `mcpBookmarks.quickAddMode` | "simple" | Quick add mode: "full" (all options) or "simple" (title only) |
+| `mcpBookmarks.defaultCategory` | "explanation" | Default category for new bookmarks |
+| `mcpBookmarks.confirmBeforeDelete` | true | Show confirmation before deleting |
 
 ## Data Storage
 

@@ -1849,7 +1849,7 @@ body {
 
 /* Tree 模式下的 description 样式 */
 .view-mode-tree .bookmark-description {
-  font-size: 10px !important;
+  font-size: var(--font-size-description) !important;
   opacity: 0.7 !important;
   color: #ffffff !important;
 }
